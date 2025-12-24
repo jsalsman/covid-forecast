@@ -13,13 +13,14 @@ This is a Flask application that provides a forecast of COVID-19 wastewater data
 ## How to Run
 
 1.  **Install dependencies:**
-    ```bash
-    source .venv/bin/activate
+    ```sh
+    python -m venv .venv
+    . .venv/bin/activate
     pip install -r requirements.txt
     ```
 2.  **Run the development server:**
-    ```bash
-    ./devserver.sh
+    ```sh
+    ./devserver.sh &
     ```
 
 This will start the Flask development server, and you can access the application in your browser.
