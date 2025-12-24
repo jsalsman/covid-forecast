@@ -6,13 +6,14 @@
     <title>COVID Wastewater Forecast</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
-        /* Custom slider styles if needed */
+        /* Custom slider styles */
         input[type=range] {
-            appearance: none;  /* Hides the slider so that custom slider can be made */
+            appearance: none;
             -webkit-appearance: none;
-            width: 100%; /* Specific width is required for Firefox. */
-            background: transparent; /* Otherwise white in Chrome */
+            width: 100%;
+            background: transparent;
         }
         input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
@@ -21,8 +22,8 @@
             border-radius: 50%;
             background: #3b82f6;
             cursor: pointer;
-            margin-top: -6px; /* You need to specify a margin in Chrome, but in Firefox and IE it is automatic */
-            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d; /* Add cool effects to your sliders! */
+            margin-top: -6px;
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
         }
         input[type=range]::-webkit-slider-runnable-track {
             width: 100%;
@@ -40,10 +41,15 @@
             Holt-Winters model (52-week seasonality) with 50% confidence intervals.
             Select a cut-off date to see the forecast vs actuals.
         </p>
+        <p class="text-center mb-4 text-xs text-gray-500">
+            Powered by Pyodide (Python running in your browser).
+        </p>
 
         <div class="bg-white rounded-lg shadow-lg p-6 relative">
-            <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 flex items-start justify-center z-50 pt-20">
-                <img src="loading.gif" alt="Loading..." class="w-16 h-16">
+            <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-start z-50 pt-20">
+                <img src="loading.gif" alt="Loading..." class="w-16 h-16 mb-4">
+                <p id="loading-text" class="text-lg font-semibold text-gray-700">Initializing Python Environment...</p>
+                <p class="text-sm text-gray-500">(This may take a moment on first load)</p>
             </div>
 
             <div id="chart" class="w-full h-[600px] mb-2"></div>
@@ -51,48 +57,206 @@
             <div class="relative w-full">
                 <!-- Slider Container that will be aligned -->
                 <div id="slider-container" class="w-full">
-                    <input type="range" id="dateSlider" min="0" max="100" value="100" class="w-full">
+                    <input type="range" id="dateSlider" min="0" max="100" value="100" class="w-full" disabled>
                 </div>
                 <div class="text-center mt-2">
-                    <label for="dateSlider" class="font-semibold text-lg">Forecast Cut-off Date: <span id="cutoffDateLabel" class="text-blue-600"></span></label>
+                    <label for="dateSlider" class="font-semibold text-lg">Forecast Cut-off Date: <span id="cutoffDateLabel" class="text-blue-600">--</span></label>
                 </div>
-                <p class="text-center mt-2 text-sm text-gray-500">Drag the slider to change the model training cut-off date. The upper 50% confidence interval region is bounded at an <a href="https://www.cdc.gov/nwss/data-methods.html#what">activity level</a> of 30.</p>
+                <p class="text-center mt-2 text-sm text-gray-500">Drag the slider to change the model training cut-off date. The upper 50% confidence interval region is bounded at an <a href="https://www.cdc.gov/nwss/data-methods.html#what" class="text-blue-600 underline">activity level</a> of 30.</p>
             </div>
         </div>
     </div>
 
     <script>
+        // --- Web Worker Code ---
+        const workerCode = `
+            importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js");
+
+            async function loadPyodideAndPackages() {
+                self.pyodide = await loadPyodide();
+                await self.pyodide.loadPackage(["pandas", "statsmodels", "scipy"]);
+            }
+
+            let pyodideReadyPromise = loadPyodideAndPackages();
+
+            const pythonScript = \`
+import pandas as pd
+import numpy as np
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from pyodide.http import open_url
+import json
+
+df = None
+
+def get_data():
+    global df
+    url = "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv"
+    try:
+        # Load data
+        df_raw = pd.read_csv(open_url(url))
+
+        df_raw['Week_Ending_Date'] = pd.to_datetime(df_raw['Week_Ending_Date'])
+        df_raw = df_raw.sort_values('Week_Ending_Date')
+
+        # We only care about National_WVAL and Week_Ending_Date
+        cleaned = df_raw[['Week_Ending_Date', 'National_WVAL']].dropna()
+
+        # Drop duplicates to ensure unique index
+        cleaned = cleaned.drop_duplicates(subset=['Week_Ending_Date'])
+
+        cleaned = cleaned.set_index('Week_Ending_Date')
+
+        try:
+            cleaned.index.freq = pd.infer_freq(cleaned.index)
+        except:
+            pass
+
+        df = cleaned
+
+        # Prepare initial data for JS
+        data = []
+        for date, row in df.iterrows():
+            val = row['National_WVAL']
+            # Handle NaN/Inf
+            if pd.isna(val) or np.isinf(val):
+                val = None
+            else:
+                val = float(val)
+
+            data.append({
+                'date': date.strftime('%Y-%m-%d'),
+                'value': val
+            })
+        return data
+    except Exception as e:
+        return {"error": str(e)}
+
+def clean_val(v):
+    if v is None: return None
+    if isinstance(v, (float, np.float64, np.float32)):
+        if np.isnan(v) or np.isinf(v): return None
+    return float(v)
+
+def run_forecast(cutoff_date_str):
+    global df
+    if df is None:
+        return {"error": "Data not loaded"}
+
+    if cutoff_date_str:
+        cutoff_date = pd.to_datetime(cutoff_date_str)
+        train_df = df[df.index <= cutoff_date]
+    else:
+        train_df = df
+
+    # Model
+    try:
+        model = ExponentialSmoothing(
+            train_df['National_WVAL'],
+            seasonal_periods=52,
+            trend='add',
+            seasonal='add',
+            damped_trend=True,
+            use_boxcox=True,
+            initialization_method="estimated"
+        )
+        model_fit = model.fit()
+    except Exception as e:
+        # Fallback
+        model = ExponentialSmoothing(
+            train_df['National_WVAL'],
+            seasonal_periods=52,
+            trend='add',
+            seasonal='add'
+        )
+        model_fit = model.fit()
+
+    forecast_steps = 52
+    forecast = model_fit.forecast(forecast_steps)
+
+    # Confidence Intervals via Simulation
+    n_simulations = 500
+    simulations = np.zeros((forecast_steps, n_simulations))
+
+    for i in range(n_simulations):
+        sim = model_fit.simulate(forecast_steps, anchor='end')
+        simulations[:, i] = sim.values
+
+    lower_bound = np.nanpercentile(simulations, 25, axis=1)
+    upper_bound = np.nanpercentile(simulations, 75, axis=1)
+
+    upper_bound = np.minimum(upper_bound, 30)
+
+    forecast_data = []
+    last_date = train_df.index[-1]
+
+    for i in range(forecast_steps):
+        next_date = last_date + pd.Timedelta(weeks=i+1)
+        forecast_data.append({
+            'date': next_date.strftime('%Y-%m-%d'),
+            'forecast': clean_val(forecast.iloc[i]),
+            'lower': clean_val(lower_bound[i]),
+            'upper': clean_val(upper_bound[i])
+        })
+
+    return {
+        'forecast': forecast_data,
+        'cutoff_date': train_df.index[-1].strftime('%Y-%m-%d')
+    }
+\`;
+
+            self.onmessage = async (event) => {
+                await pyodideReadyPromise;
+                const { type, payload } = event.data;
+
+                if (type === 'init') {
+                    // Initialize Python environment
+                    await self.pyodide.runPythonAsync(pythonScript);
+
+                    // Fetch data
+                    const result = await self.pyodide.runPythonAsync("get_data()");
+                    const data = result.toJs({dict_converter: Object.fromEntries});
+                    self.postMessage({ type: 'init_result', data: data });
+                } else if (type === 'forecast') {
+                    const date = payload;
+                    self.pyodide.globals.set("target_date", date);
+                    const result = await self.pyodide.runPythonAsync("run_forecast(target_date)");
+                    const data = result.toJs({dict_converter: Object.fromEntries});
+                    self.postMessage({ type: 'forecast_result', data: data });
+                }
+            };
+        `;
+
+        // --- Main UI Logic ---
+        const blob = new Blob([workerCode], { type: "text/javascript" });
+        const worker = new Worker(URL.createObjectURL(blob));
+
         let allData = [];
         let dates = [];
-        
-        async function fetchData() {
-            try {
-                const response = await fetch('/api/data');
-                const data = await response.json();
-                return data;
-            } catch (e) {
-                console.error("fetchData failed", e);
-            }
-        }
 
-        async function fetchForecast(cutoffDate) {
-            try {
-                const response = await fetch('/api/forecast', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ cutoff_date: cutoffDate })
-                });
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+        // UI References
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const slider = document.getElementById('dateSlider');
+        const cutoffLabel = document.getElementById('cutoffDateLabel');
+        const chartDiv = document.getElementById('chart');
+
+        worker.onmessage = (event) => {
+            const { type, data } = event.data;
+            if (type === 'init_result') {
+                if (data.error) {
+                    console.error("Python Init Error:", data.error);
+                    loadingText.innerText = "Error loading data.";
+                    return;
                 }
-                return await response.json();
-            } catch (e) {
-                console.error("fetchForecast failed", e);
-                throw e;
+                loadingText.innerText = "Rendering initial chart...";
+                initChart(data);
+            } else if (type === 'forecast_result') {
+                updateChartWithForecast(data);
             }
-        }
+        };
+
+        // Start initialization
+        worker.postMessage({ type: 'init' });
 
         function initChart(data) {
             if (!data) return;
@@ -100,9 +264,7 @@
             dates = allData.map(d => d.date);
             
             // Set slider range
-            const slider = document.getElementById('dateSlider');
-            // Limit the earliest cutoff to 104 weeks (2 seasonal cycles) to avoid Holt-Winters errors
-            const minIndex = 104;
+            const minIndex = 104; // Keep the 104 week constraint
             if (dates.length > minIndex) {
                 slider.min = minIndex;
             } else {
@@ -110,40 +272,142 @@
             }
             slider.max = dates.length - 1;
             slider.value = dates.length - 1;
+            slider.disabled = false;
             
-            updateChart(dates.length - 1); // Initial forecast at most recent date
+            // Initial Forecast
+            requestForecast(dates.length - 1);
             
             slider.addEventListener('input', (e) => {
                 const index = parseInt(e.target.value);
-                document.getElementById('cutoffDateLabel').innerText = dates[index];
+                cutoffLabel.innerText = dates[index];
             });
 
             slider.addEventListener('change', (e) => {
                 const index = parseInt(e.target.value);
-                updateChart(index);
+                requestForecast(index);
             });
 
-            // Handle resize
             window.addEventListener('resize', () => {
-                const chart = document.getElementById('chart');
-                Plotly.Plots.resize(chart).then(() => {
-                    alignSlider();
-                });
+                Plotly.Plots.resize(chartDiv).then(alignSlider);
+            });
+        }
+
+        function requestForecast(cutoffIndex) {
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('flex');
+            loadingText.innerText = "Calculating Forecast...";
+
+            const cutoffDate = dates[cutoffIndex];
+            cutoffLabel.innerText = cutoffDate;
+
+            worker.postMessage({ type: 'forecast', payload: cutoffDate });
+        }
+
+        function updateChartWithForecast(forecastData) {
+            if (forecastData.error) {
+                console.error("Forecast Error:", forecastData.error);
+                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.remove('flex');
+                return;
+            }
+
+            const cutoffDateStr = forecastData.cutoff_date;
+            const cutoffIndex = dates.indexOf(cutoffDateStr);
+
+            const trainData = allData.slice(0, cutoffIndex + 1);
+            const testData = allData.slice(cutoffIndex + 1);
+
+            const trainDates = trainData.map(d => d.date);
+            const trainValues = trainData.map(d => d.value);
+
+            const testDates = testData.map(d => d.date);
+            const testValues = testData.map(d => d.value);
+
+            const forecastDates = forecastData.forecast.map(d => d.date);
+            const forecastValues = forecastData.forecast.map(d => d.forecast);
+            const lowerBound = forecastData.forecast.map(d => d.lower);
+            const upperBound = forecastData.forecast.map(d => d.upper);
+
+            const traces = [
+                // Lower Bound
+                {
+                    x: forecastDates,
+                    y: lowerBound,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { width: 0 },
+                    showlegend: false,
+                    hoverinfo: 'skip'
+                },
+                // Upper Bound (Filled)
+                {
+                    x: forecastDates,
+                    y: upperBound,
+                    type: 'scatter',
+                    mode: 'lines',
+                    fill: 'tonexty',
+                    fillcolor: 'rgba(37, 99, 235, 0.2)',
+                    line: { width: 0 },
+                    name: '50% Confidence Interval',
+                    hoverinfo: 'skip'
+                },
+                // Forecast
+                {
+                    x: forecastDates,
+                    y: forecastValues,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Forecast',
+                    line: { color: '#2563eb', width: 3 }
+                },
+                // Actual Future
+                {
+                    x: testDates,
+                    y: testValues,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Actual',
+                    line: { color: '#1f2937', width: 2, dash: 'dot' }
+                },
+                // History
+                {
+                    x: trainDates,
+                    y: trainValues,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'History',
+                    line: { color: '#1f2937', width: 2 }
+                },
+            ];
+
+            const layout = {
+                yaxis: { title: 'Wastewater Viral Activity Level' },
+                hovermode: 'x',
+                showlegend: true,
+                legend: { orientation: 'h', y: 1.1 },
+                margin: { t: 0, b: 25, l: 40, r: 0 }
+            };
+
+            Plotly.react('chart', traces, layout).then(() => {
+                alignSlider();
+                loadingOverlay.classList.add('hidden');
+                loadingOverlay.classList.remove('flex');
+            });
+            
+             // Also align on relayout (zoom/pan)
+            chartDiv.on('plotly_relayout', function(){
+                alignSlider();
             });
         }
 
         function alignSlider() {
-            const chart = document.getElementById('chart');
-            if (!chart || !chart._fullLayout) {
-                return;
-            }
-            
-            const xaxis = chart._fullLayout.xaxis;
-            const margin = chart._fullLayout.margin;
+            if (!chartDiv || !chartDiv._fullLayout) return;
+
+            const xaxis = chartDiv._fullLayout.xaxis;
+            const margin = chartDiv._fullLayout.margin;
             
             if (dates.length === 0) return;
 
-            const slider = document.getElementById('dateSlider');
             const minIndex = parseInt(slider.min) || 0;
             const maxIndex = parseInt(slider.max) || (dates.length - 1);
 
@@ -154,7 +418,7 @@
             let startPx = xaxis.c2p(startDate);
             let endPx = xaxis.c2p(endDate);
             
-            // Fallback to timestamp if needed
+             // Fallback to timestamp if needed
             if (startPx === undefined || isNaN(startPx)) {
                  startPx = xaxis.c2p(new Date(startDate).getTime());
             }
@@ -168,113 +432,11 @@
             const sliderContainer = document.getElementById('slider-container');
             
             // Apply styles
-            sliderContainer.style.marginLeft = `${leftOffset}px`;
-            sliderContainer.style.width = `${width}px`;
-        }
-
-        async function updateChart(cutoffIndex) {
-            const overlay = document.getElementById('loading-overlay');
-            overlay.classList.remove('hidden');
-            overlay.classList.add('flex');
-
-            const cutoffDate = dates[cutoffIndex];
-            document.getElementById('cutoffDateLabel').innerText = cutoffDate;
-            
-            try {
-                const forecastData = await fetchForecast(cutoffDate);
-
-                const trainData = allData.slice(0, cutoffIndex + 1);
-                const testData = allData.slice(cutoffIndex + 1); // Actual data after cutoff
-
-                const trainDates = trainData.map(d => d.date);
-                const trainValues = trainData.map(d => d.value);
-
-                const testDates = testData.map(d => d.date);
-                const testValues = testData.map(d => d.value);
-
-                const forecastDates = forecastData.forecast.map(d => d.date);
-                const forecastValues = forecastData.forecast.map(d => d.forecast);
-                const lowerBound = forecastData.forecast.map(d => d.lower);
-                const upperBound = forecastData.forecast.map(d => d.upper);
-
-                const traces = [
-                    // Confidence Interval (Lower)
-                    {
-                        x: forecastDates,
-                        y: lowerBound,
-                        type: 'scatter',
-                        mode: 'lines',
-                        line: { width: 0 },
-                        showlegend: false,
-                        hoverinfo: 'skip'
-                    },
-                    // Confidence Interval (Upper)
-                    {
-                        x: forecastDates,
-                        y: upperBound,
-                        type: 'scatter',
-                        mode: 'lines',
-                        fill: 'tonexty',
-                        fillcolor: 'rgba(37, 99, 235, 0.2)',
-                        line: { width: 0 },
-                        name: '50% Confidence Interval',
-                        hoverinfo: 'skip'
-                    },
-                    // Forecast
-                    {
-                        x: forecastDates,
-                        y: forecastValues,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: 'Forecast',
-                        line: { color: '#2563eb', width: 3 }
-                    },
-                    // Actual Future Data (if any)
-                    {
-                        x: testDates,
-                        y: testValues,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: 'Actual',
-                        line: { color: '#1f2937', width: 2, dash: 'dot' }
-                    },
-                    // Training Data
-                    {
-                        x: trainDates,
-                        y: trainValues,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: 'History',
-                        line: { color: '#1f2937', width: 2 }
-                    },
-                ];
-
-                const layout = {
-                    yaxis: { title: 'Wastewater Viral Activity Level' },
-                    hovermode: 'x',
-                    showlegend: true,
-                    legend: { orientation: 'h', y: 1.1 },
-                    margin: { t: 0, b: 25, l: 40, r: 0 }
-                };
-
-                await Plotly.react('chart', traces, layout);
-                alignSlider();
-
-                // Also align on relayout (zoom/pan)
-                document.getElementById('chart').on('plotly_relayout', function(){
-                    alignSlider();
-                });
-            } catch (e) {
-                console.error("Error in updateChart:", e);
-            } finally {
-                overlay.classList.add('hidden');
-                overlay.classList.remove('flex');
+            if (width > 0) {
+                 sliderContainer.style.marginLeft = `${leftOffset}px`;
+                 sliderContainer.style.width = `${width}px`;
             }
         }
-
-        // Initialize
-        fetchData().then(initChart);
-
     </script>
 </body>
 </html>
