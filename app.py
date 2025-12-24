@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 import numpy as np
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, send_from_directory
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import requests
 from io import StringIO
@@ -56,6 +56,10 @@ def get_data():
 @app.route('/')
 def index():
     return render_template('index-template.html')
+
+@app.route('/loading.gif')
+def serve_loading_gif():
+    return send_from_directory('.', 'loading.gif')
 
 @app.route('/api/data')
 def api_data():

@@ -41,7 +41,11 @@
             Select a cut-off date to see the forecast vs actuals.
         </p>
 
-        <div class="bg-white rounded-lg shadow-lg p-6">
+        <div class="bg-white rounded-lg shadow-lg p-6 relative">
+            <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
+                <img src="loading.gif" alt="Loading..." class="w-16 h-16">
+            </div>
+
             <div id="chart" class="w-full h-[600px] mb-2"></div>
             
             <div class="relative w-full">
@@ -169,6 +173,10 @@
         }
 
         async function updateChart(cutoffIndex) {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+
             const cutoffDate = dates[cutoffIndex];
             document.getElementById('cutoffDateLabel').innerText = cutoffDate;
             
@@ -249,16 +257,18 @@
                     margin: { t: 0, b: 25, l: 40, r: 0 }
                 };
 
-                Plotly.react('chart', traces, layout).then(function() {
-                    alignSlider();
+                await Plotly.react('chart', traces, layout);
+                alignSlider();
 
-                    // Also align on relayout (zoom/pan)
-                    document.getElementById('chart').on('plotly_relayout', function(){
-                        alignSlider();
-                    });
+                // Also align on relayout (zoom/pan)
+                document.getElementById('chart').on('plotly_relayout', function(){
+                    alignSlider();
                 });
             } catch (e) {
                 console.error("Error in updateChart:", e);
+            } finally {
+                overlay.classList.add('hidden');
+                overlay.classList.remove('flex');
             }
         }
 
