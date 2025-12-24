@@ -38,12 +38,11 @@ jobs:
 
           # Build the requested packages
           # We include scipy because statsmodels depends on it and we want to ensure compatibility/locality
-          # We include micropip to manage installations
           pyodide build-recipes \
             --recipe-dir $PYODIDE_ROOT/packages \
             --install-dir $(pwd)/dist \
             --install \
-            pandas statsmodels scipy micropip
+            pandas statsmodels scipy
 
       - name: Download Base Pyodide Runtime
         run: |
