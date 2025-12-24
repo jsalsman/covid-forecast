@@ -41,15 +41,12 @@
             Holt-Winters model (52-week seasonality) with 50% confidence intervals.
             Select a cut-off date to see the forecast vs actuals.
         </p>
-        <p class="text-center mb-4 text-xs text-gray-500">
-            Powered by Pyodide (Python running in your browser).
-        </p>
 
         <div class="bg-white rounded-lg shadow-lg p-6 relative">
             <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-start z-50 pt-20">
                 <img src="loading.gif" alt="Loading..." class="w-16 h-16 mb-4">
                 <p id="loading-text" class="text-lg font-semibold text-gray-700">Initializing Python Environment...</p>
-                <p class="text-sm text-gray-500">(This may take a moment on first load)</p>
+                <p class="text-sm text-gray-500">(This may take a minute or two)</p>
             </div>
 
             <div id="chart" class="w-full h-[600px] mb-2"></div>
