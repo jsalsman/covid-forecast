@@ -5,6 +5,7 @@ from flask import Flask, jsonify, request, render_template
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 import requests
 from io import StringIO
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -12,7 +13,15 @@ DATA_URL = "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalact
 LOCAL_FILE = "covid_data.csv"
 
 def get_data():
+    should_download = False
     if not os.path.exists(LOCAL_FILE):
+        should_download = True
+    else:
+        file_mod_time = os.path.getmtime(LOCAL_FILE)
+        if (datetime.now() - datetime.fromtimestamp(file_mod_time)) > timedelta(weeks=1):
+            should_download = True
+            
+    if should_download:
         print("Downloading data...")
         response = requests.get(DATA_URL)
         if response.status_code == 200:
