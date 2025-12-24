@@ -42,7 +42,7 @@
         </p>
 
         <div class="bg-white rounded-lg shadow-lg p-6">
-            <div id="chart" class="w-full h-[600px] mb-6"></div>
+            <div id="chart" class="w-full h-[600px] mb-2"></div>
             
             <div class="relative w-full">
                 <!-- Slider Container that will be aligned -->
@@ -246,7 +246,7 @@
                     hovermode: 'x',
                     showlegend: true,
                     legend: { orientation: 'h', y: 1.1 },
-                    margin: { t: 0, b: 20, l: 40, r: 0 }
+                    margin: { t: 0, b: 25, l: 40, r: 0 }
                 };
 
                 Plotly.react('chart', traces, layout).then(function() {
