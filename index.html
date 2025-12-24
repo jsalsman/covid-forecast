@@ -74,7 +74,7 @@
 
             async function loadPyodideAndPackages() {
                 self.pyodide = await loadPyodide();
-                await self.pyodide.loadPackage(["pandas", "statsmodels", "scipy"]);
+                await self.pyodide.loadPackage(["pandas", "statsmodels"]);
             }
 
             let pyodideReadyPromise = loadPyodideAndPackages();
