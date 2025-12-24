@@ -69,8 +69,11 @@
 
     <script>
         // --- Web Worker Code ---
+        // Dynamically determine the base URL to allow absolute imports in Blob Worker
+        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+
         const workerCode = `
-            importScripts("./pyodide.js");
+            importScripts("${baseUrl}pyodide.js");
 
             function updateStatus(msg) {
                 self.postMessage({ type: 'status', message: msg });
@@ -81,7 +84,7 @@
                 self.updateStatus("Loading Pyodide...");
                 // Load Pyodide from local files
                 self.pyodide = await loadPyodide({
-                    indexURL: "./"
+                    indexURL: "${baseUrl}"
                 });
 
                 self.updateStatus("Loading packages...");
