@@ -37,8 +37,20 @@ def get_data():
     
     # We only care about National_WVAL and Week_Ending_Date
     df = df[['Week_Ending_Date', 'National_WVAL']].dropna()
+
+    # Drop duplicates to ensure unique index
+    df = df.drop_duplicates(subset=['Week_Ending_Date'])
+
     df = df.set_index('Week_Ending_Date')
     
+    # Set frequency to Weekly (Week Ending Saturday seems to be the pattern based on data, but let's just infer)
+    # Actually, statsmodels likes explicit frequency.
+    # The diffs were 7 days.
+    try:
+        df.index.freq = pd.infer_freq(df.index)
+    except:
+        pass # Fallback
+
     return df
 
 @app.route('/')
@@ -50,11 +62,20 @@ def api_data():
     df = get_data()
     data = []
     for date, row in df.iterrows():
+        val = row['National_WVAL']
         data.append({
             'date': date.strftime('%Y-%m-%d'),
-            'value': row['National_WVAL']
+            'value': None if pd.isna(val) else val
         })
     return jsonify(data)
+
+def clean_float(val):
+    if val is None:
+        return None
+    if isinstance(val, (float, np.float64, np.float32)):
+        if np.isnan(val) or np.isinf(val):
+            return None
+    return float(val)
 
 @app.route('/api/forecast', methods=['POST'])
 def api_forecast():
@@ -127,9 +148,9 @@ def api_forecast():
         next_date = last_date + pd.Timedelta(weeks=i+1)
         forecast_data.append({
             'date': next_date.strftime('%Y-%m-%d'),
-            'forecast': float(forecast.iloc[i]),
-            'lower': float(lower_bound[i]),
-            'upper': float(upper_bound[i])
+            'forecast': clean_float(forecast.iloc[i]),
+            'lower': clean_float(lower_bound[i]),
+            'upper': clean_float(upper_bound[i])
         })
         
     return jsonify({
