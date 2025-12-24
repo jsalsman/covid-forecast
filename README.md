@@ -58,7 +58,7 @@ Then navigate to `http://localhost:8000` in your web browser.
 
 ### Browser Compatibility
 
-Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edge). The first load may take a few moments to download the Pyodide runtime and Python packages.
+Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edge). The first load may take a few minutes to download the Pyodide runtime and Python packages.
 
 ## File Structure
 
