@@ -72,9 +72,18 @@
         const workerCode = `
             importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js");
 
+            function updateStatus(msg) {
+                self.postMessage({ type: 'status', message: msg });
+            }
+            self.updateStatus = updateStatus;
+
             async function loadPyodideAndPackages() {
+                self.updateStatus("Loading Pyodide...");
                 self.pyodide = await loadPyodide();
-                await self.pyodide.loadPackage(["pandas", "statsmodels"]);
+                self.updateStatus("Loading pandas...");
+                await self.pyodide.loadPackage(["pandas"]);
+                self.updateStatus("Loading statsmodels...");
+                await self.pyodide.loadPackage(["statsmodels"]);
             }
 
             let pyodideReadyPromise = loadPyodideAndPackages();
@@ -85,6 +94,7 @@ import numpy as np
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from pyodide.http import open_url
 import json
+import js
 
 df = None
 
@@ -178,6 +188,8 @@ def run_forecast(cutoff_date_str):
     simulations = np.zeros((forecast_steps, n_simulations))
 
     for i in range(n_simulations):
+        if i % 10 == 0:
+            js.updateStatus(f"{i} out of {n_simulations} simulations...")
         sim = model_fit.simulate(forecast_steps, anchor='end')
         simulations[:, i] = sim.values
 
@@ -241,8 +253,10 @@ def run_forecast(cutoff_date_str):
         const chartDiv = document.getElementById('chart');
 
         worker.onmessage = (event) => {
-            const { type, data } = event.data;
-            if (type === 'init_result') {
+            const { type, data, message } = event.data;
+            if (type === 'status') {
+                loadingText.innerText = message;
+            } else if (type === 'init_result') {
                 if (data.error) {
                     console.error("Python Init Error:", data.error);
                     loadingText.innerText = "Error loading data.";
