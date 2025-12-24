@@ -39,6 +39,10 @@ jobs:
           cd pyodide-repo
           export PYODIDE_ROOT=$(pwd)
 
+          export HOSTSITEPACKAGES=$PYODIDE_ROOT/packages/.artifacts/lib/python3.12/site-packages
+          export SIDE_MODULE_CFLAGS="-I$PYODIDE_ROOT/cpython/installs/python-3.12.1/include/python3.12 -O2"
+          export SIDE_MODULE_LDFLAGS="-O2"
+
           # Source the Pyodide environment variables
           source pyodide_env.sh
 
