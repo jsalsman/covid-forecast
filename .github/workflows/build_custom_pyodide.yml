@@ -31,19 +31,21 @@ jobs:
       - name: Build Packages
         shell: bash
         run: |
-          # Create a directory for our custom distribution
+          # Create a directory for our custom distribution (absolute path)
           mkdir -p dist
+          export DIST_DIR=$(pwd)/dist
 
-          # Set PYODIDE_ROOT so the build tool knows where the source tree is
-          export PYODIDE_ROOT=$(pwd)/pyodide-repo
+          # Enter the Pyodide source tree
+          cd pyodide-repo
+          export PYODIDE_ROOT=$(pwd)
 
-          # Source the Pyodide environment variables (required for build flags and paths)
-          source $PYODIDE_ROOT/pyodide_env.sh
+          # Source the Pyodide environment variables
+          source pyodide_env.sh
 
           # Build the requested packages
           pyodide build-recipes \
-            --recipe-dir $PYODIDE_ROOT/packages \
-            --install-dir $(pwd)/dist \
+            --recipe-dir packages \
+            --install-dir $DIST_DIR \
             --install \
             pandas statsmodels
 
