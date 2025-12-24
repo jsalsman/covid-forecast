@@ -45,12 +45,12 @@
             <div id="chart" class="w-full h-[600px] mb-6"></div>
             
             <div class="relative w-full">
-                <div class="text-center mb-2">
-                    <label for="dateSlider" class="font-semibold text-lg">Cut-off Date: <span id="cutoffDateLabel" class="text-blue-600"></span></label>
-                </div>
                 <!-- Slider Container that will be aligned -->
                 <div id="slider-container" class="w-full">
                     <input type="range" id="dateSlider" min="0" max="100" value="100" class="w-full">
+                </div>
+                <div class="text-center mt-2">
+                    <label for="dateSlider" class="font-semibold text-lg">Cut-off Date: <span id="cutoffDateLabel" class="text-blue-600"></span></label>
                 </div>
                 <p class="text-center mt-2 text-sm text-gray-500">Drag the slider to change the model training cut-off date.</p>
             </div>
@@ -230,12 +230,12 @@
                 ];
 
                 const layout = {
-                    title: `Forecast starting from ${cutoffDate}`,
                     xaxis: { title: 'Date' },
                     yaxis: { title: 'Wastewater Viral Activity Level' },
                     hovermode: 'x',
                     showlegend: true,
-                    legend: { orientation: 'h', y: -0.2 }
+                    legend: { orientation: 'h', y: 1.1 },
+                    margin: { t: 50 }
                 };
 
                 Plotly.react('chart', traces, layout).then(function() {
