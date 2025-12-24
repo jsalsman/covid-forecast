@@ -97,6 +97,13 @@
             
             // Set slider range
             const slider = document.getElementById('dateSlider');
+            // Limit the earliest cutoff to 104 weeks (2 seasonal cycles) to avoid Holt-Winters errors
+            const minIndex = 104;
+            if (dates.length > minIndex) {
+                slider.min = minIndex;
+            } else {
+                slider.min = 0;
+            }
             slider.max = dates.length - 1;
             slider.value = dates.length - 1;
             
@@ -131,8 +138,13 @@
             const margin = chart._fullLayout.margin;
             
             if (dates.length === 0) return;
-            const startDate = dates[0];
-            const endDate = dates[dates.length - 1];
+
+            const slider = document.getElementById('dateSlider');
+            const minIndex = parseInt(slider.min) || 0;
+            const maxIndex = parseInt(slider.max) || (dates.length - 1);
+
+            const startDate = dates[minIndex];
+            const endDate = dates[maxIndex];
             
             // Calculate pixels relative to the plot area
             let startPx = xaxis.c2p(startDate);
