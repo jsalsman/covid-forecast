@@ -43,6 +43,20 @@ The entire application logic is contained within `index.html`.
 
 ## Usage
 
+### Building the Custom Pyodide Distribution
+
+To improve loading times and avoid relying on external CDNs, this repository includes a GitHub Actions workflow to build a custom Pyodide distribution containing `pandas` and `statsmodels`.
+
+To trigger a rebuild manually:
+1. Go to the **Actions** tab in the GitHub repository.
+2. Select the **Build Custom Pyodide Distribution** workflow.
+3. Click **Run workflow**.
+
+This will:
+1. Build `pandas` and `statsmodels` (and dependencies) from source using the Pyodide build environment.
+2. Download the base Pyodide runtime.
+3. Deploy the artifacts to the `gh-pages` branch.
+
 ### Running Locally
 
 Since this application uses Web Workers and fetches external data, it must be served over HTTP(S) rather than opening the file directly (due to CORS and worker restrictions).
