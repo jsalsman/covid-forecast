@@ -138,6 +138,9 @@ def api_forecast():
     lower_bound = np.nanpercentile(simulations, 25, axis=1)
     upper_bound = np.nanpercentile(simulations, 75, axis=1)
     
+    # Clamp upper bound at 30
+    upper_bound = np.minimum(upper_bound, 30)
+
     # Prepare response
     forecast_data = []
     # Get the last date of training data
