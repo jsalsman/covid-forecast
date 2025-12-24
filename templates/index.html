@@ -190,33 +190,6 @@
                 const upperBound = forecastData.forecast.map(d => d.upper);
 
                 const traces = [
-                    // Training Data
-                    {
-                        x: trainDates,
-                        y: trainValues,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: 'History',
-                        line: { color: '#1f2937', width: 2 }
-                    },
-                    // Actual Future Data (if any)
-                    {
-                        x: testDates,
-                        y: testValues,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: 'Actual',
-                        line: { color: '#1f2937', width: 2, dash: 'dot' }
-                    },
-                    // Forecast
-                    {
-                        x: forecastDates,
-                        y: forecastValues,
-                        type: 'scatter',
-                        mode: 'lines',
-                        name: 'Forecast',
-                        line: { color: '#2563eb', width: 3 }
-                    },
                     // Confidence Interval (Lower)
                     {
                         x: forecastDates,
@@ -238,7 +211,34 @@
                         line: { width: 0 },
                         name: '50% Confidence Interval',
                         hoverinfo: 'skip'
-                    }
+                    },
+                    // Forecast
+                    {
+                        x: forecastDates,
+                        y: forecastValues,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'Forecast',
+                        line: { color: '#2563eb', width: 3 }
+                    },
+                    // Actual Future Data (if any)
+                    {
+                        x: testDates,
+                        y: testValues,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'Actual',
+                        line: { color: '#1f2937', width: 2, dash: 'dot' }
+                    },
+                    // Training Data
+                    {
+                        x: trainDates,
+                        y: trainValues,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'History',
+                        line: { color: '#1f2937', width: 2 }
+                    },
                 ];
 
                 const layout = {
