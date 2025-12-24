@@ -135,8 +135,8 @@ def api_forecast():
         simulations[:, i] = sim.values
 
     # Calculate percentiles for 50% CI (25th to 75th percentile)
-    lower_bound = np.percentile(simulations, 25, axis=1)
-    upper_bound = np.percentile(simulations, 75, axis=1)
+    lower_bound = np.nanpercentile(simulations, 25, axis=1)
+    upper_bound = np.nanpercentile(simulations, 75, axis=1)
     
     # Prepare response
     forecast_data = []
