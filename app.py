@@ -37,8 +37,20 @@ def get_data():
     
     # We only care about National_WVAL and Week_Ending_Date
     df = df[['Week_Ending_Date', 'National_WVAL']].dropna()
+
+    # Drop duplicates to ensure unique index
+    df = df.drop_duplicates(subset=['Week_Ending_Date'])
+
     df = df.set_index('Week_Ending_Date')
     
+    # Set frequency to Weekly (Week Ending Saturday seems to be the pattern based on data, but let's just infer)
+    # Actually, statsmodels likes explicit frequency.
+    # The diffs were 7 days.
+    try:
+        df.index.freq = pd.infer_freq(df.index)
+    except:
+        pass # Fallback
+
     return df
 
 @app.route('/')
