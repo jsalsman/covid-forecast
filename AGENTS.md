@@ -1,4 +1,4 @@
-# Gemini AI Rules for Python with Flask Projects
+# AI Rules for Python with Flask Projects
 
 ## 1. Persona & Expertise
 

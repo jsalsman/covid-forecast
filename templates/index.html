@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COVID Wastewater Forecast</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+    <style>
+        /* Custom slider styles if needed */
+        input[type=range] {
+            -webkit-appearance: none; /* Hides the slider so that custom slider can be made */
+            width: 100%; /* Specific width is required for Firefox. */
+            background: transparent; /* Otherwise white in Chrome */
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -6px; /* You need to specify a margin in Chrome, but in Firefox and IE it is automatic */
+            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d; /* Add cool effects to your sliders! */
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #cbd5e1;
+            border-radius: 1.3px;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen font-sans text-gray-900">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-4 text-center">National COVID Wastewater Forecast</h1>
+        <p class="text-center mb-8 text-gray-600">
+            Holt-Winters model (52-week seasonality) with 50% confidence intervals.
+            Select a cut-off date to see the forecast vs actuals.
+        </p>
+
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <div id="chart" class="w-full h-[600px] mb-6"></div>
+            
+            <div class="flex flex-col items-center space-y-2">
+                <label for="dateSlider" class="font-semibold text-lg">Cut-off Date: <span id="cutoffDateLabel" class="text-blue-600"></span></label>
+                <input type="range" id="dateSlider" min="0" max="100" value="100" class="w-full max-w-3xl">
+                <p class="text-sm text-gray-500">Drag the slider to change the model training cut-off date.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allData = [];
+        let dates = [];
+        
+        async function fetchData() {
+            const response = await fetch('/api/data');
+            const data = await response.json();
+            return data;
+        }
+
+        async function fetchForecast(cutoffDate) {
+            const response = await fetch('/api/forecast', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ cutoff_date: cutoffDate })
+            });
+            return await response.json();
+        }
+
+        function initChart(data) {
+            allData = data;
+            dates = allData.map(d => d.date);
+            
+            // Set slider range
+            const slider = document.getElementById('dateSlider');
+            slider.max = dates.length - 1;
+            slider.value = dates.length - 1;
+            
+            updateChart(dates.length - 1); // Initial forecast at most recent date
+            
+            slider.addEventListener('input', (e) => {
+                const index = parseInt(e.target.value);
+                document.getElementById('cutoffDateLabel').innerText = dates[index];
+            });
+
+            slider.addEventListener('change', (e) => {
+                const index = parseInt(e.target.value);
+                updateChart(index);
+            });
+        }
+
+        async function updateChart(cutoffIndex) {
+            const cutoffDate = dates[cutoffIndex];
+            document.getElementById('cutoffDateLabel').innerText = cutoffDate;
+            
+            // Show loading state if needed? Plotly updates are usually fast enough.
+            
+            const forecastData = await fetchForecast(cutoffDate);
+            
+            const trainData = allData.slice(0, cutoffIndex + 1);
+            const testData = allData.slice(cutoffIndex + 1); // Actual data after cutoff
+            
+            const trainDates = trainData.map(d => d.date);
+            const trainValues = trainData.map(d => d.value);
+            
+            const testDates = testData.map(d => d.date);
+            const testValues = testData.map(d => d.value);
+            
+            const forecastDates = forecastData.forecast.map(d => d.date);
+            const forecastValues = forecastData.forecast.map(d => d.forecast);
+            const lowerBound = forecastData.forecast.map(d => d.lower);
+            const upperBound = forecastData.forecast.map(d => d.upper);
+            
+            const traces = [
+                // Training Data
+                {
+                    x: trainDates,
+                    y: trainValues,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Historical Data',
+                    line: { color: '#1f2937', width: 2 }
+                },
+                // Actual Future Data (if any)
+                {
+                    x: testDates,
+                    y: testValues,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Actual (Comparison)',
+                    line: { color: '#1f2937', width: 2, dash: 'dot' }
+                },
+                // Forecast
+                {
+                    x: forecastDates,
+                    y: forecastValues,
+                    type: 'scatter',
+                    mode: 'lines',
+                    name: 'Forecast',
+                    line: { color: '#2563eb', width: 3 }
+                },
+                // Confidence Interval (Lower)
+                {
+                    x: forecastDates,
+                    y: lowerBound,
+                    type: 'scatter',
+                    mode: 'lines',
+                    line: { width: 0 },
+                    showlegend: false,
+                    hoverinfo: 'skip'
+                },
+                // Confidence Interval (Upper)
+                {
+                    x: forecastDates,
+                    y: upperBound,
+                    type: 'scatter',
+                    mode: 'lines',
+                    fill: 'tonexty',
+                    fillcolor: 'rgba(37, 99, 235, 0.2)',
+                    line: { width: 0 },
+                    name: '50% Confidence Interval',
+                    hoverinfo: 'skip'
+                }
+            ];
+            
+            const layout = {
+                title: `Forecast starting from ${cutoffDate}`,
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Wastewater Viral Activity Level' },
+                hovermode: 'x',
+                showlegend: true,
+                legend: { orientation: 'h', y: -0.2 }
+            };
+            
+            Plotly.newPlot('chart', traces, layout);
+        }
+
+        // Initialize
+        fetchData().then(initChart);
+
+    </script>
+</body>
+</html>
