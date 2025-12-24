@@ -62,23 +62,36 @@
         let dates = [];
         
         async function fetchData() {
-            const response = await fetch('/api/data');
-            const data = await response.json();
-            return data;
+            try {
+                const response = await fetch('/api/data');
+                const data = await response.json();
+                return data;
+            } catch (e) {
+                console.error("fetchData failed", e);
+            }
         }
 
         async function fetchForecast(cutoffDate) {
-            const response = await fetch('/api/forecast', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ cutoff_date: cutoffDate })
-            });
-            return await response.json();
+            try {
+                const response = await fetch('/api/forecast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ cutoff_date: cutoffDate })
+                });
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return await response.json();
+            } catch (e) {
+                console.error("fetchForecast failed", e);
+                throw e;
+            }
         }
 
         function initChart(data) {
+            if (!data) return;
             allData = data;
             dates = allData.map(d => d.date);
             
@@ -113,18 +126,18 @@
             if (!chart || !chart._fullLayout) {
                 return;
             }
-
+            
             const xaxis = chart._fullLayout.xaxis;
             const margin = chart._fullLayout.margin;
-
+            
             if (dates.length === 0) return;
             const startDate = dates[0];
             const endDate = dates[dates.length - 1];
-
+            
             // Calculate pixels relative to the plot area
             let startPx = xaxis.c2p(startDate);
             let endPx = xaxis.c2p(endDate);
-
+            
             // Fallback to timestamp if needed
             if (startPx === undefined || isNaN(startPx)) {
                  startPx = xaxis.c2p(new Date(startDate).getTime());
@@ -132,12 +145,12 @@
             if (endPx === undefined || isNaN(endPx)) {
                  endPx = xaxis.c2p(new Date(endDate).getTime());
             }
-
+            
             const leftOffset = margin.l + startPx;
             const width = endPx - startPx;
-
+            
             const sliderContainer = document.getElementById('slider-container');
-
+            
             // Apply styles
             sliderContainer.style.marginLeft = `${leftOffset}px`;
             sliderContainer.style.width = `${width}px`;
@@ -147,93 +160,95 @@
             const cutoffDate = dates[cutoffIndex];
             document.getElementById('cutoffDateLabel').innerText = cutoffDate;
             
-            // Show loading state if needed? Plotly updates are usually fast enough.
-            
-            const forecastData = await fetchForecast(cutoffDate);
-            
-            const trainData = allData.slice(0, cutoffIndex + 1);
-            const testData = allData.slice(cutoffIndex + 1); // Actual data after cutoff
-            
-            const trainDates = trainData.map(d => d.date);
-            const trainValues = trainData.map(d => d.value);
-            
-            const testDates = testData.map(d => d.date);
-            const testValues = testData.map(d => d.value);
-            
-            const forecastDates = forecastData.forecast.map(d => d.date);
-            const forecastValues = forecastData.forecast.map(d => d.forecast);
-            const lowerBound = forecastData.forecast.map(d => d.lower);
-            const upperBound = forecastData.forecast.map(d => d.upper);
-            
-            const traces = [
-                // Training Data
-                {
-                    x: trainDates,
-                    y: trainValues,
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: 'Historical Data',
-                    line: { color: '#1f2937', width: 2 }
-                },
-                // Actual Future Data (if any)
-                {
-                    x: testDates,
-                    y: testValues,
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: 'Actual (Comparison)',
-                    line: { color: '#1f2937', width: 2, dash: 'dot' }
-                },
-                // Forecast
-                {
-                    x: forecastDates,
-                    y: forecastValues,
-                    type: 'scatter',
-                    mode: 'lines',
-                    name: 'Forecast',
-                    line: { color: '#2563eb', width: 3 }
-                },
-                // Confidence Interval (Lower)
-                {
-                    x: forecastDates,
-                    y: lowerBound,
-                    type: 'scatter',
-                    mode: 'lines',
-                    line: { width: 0 },
-                    showlegend: false,
-                    hoverinfo: 'skip'
-                },
-                // Confidence Interval (Upper)
-                {
-                    x: forecastDates,
-                    y: upperBound,
-                    type: 'scatter',
-                    mode: 'lines',
-                    fill: 'tonexty',
-                    fillcolor: 'rgba(37, 99, 235, 0.2)',
-                    line: { width: 0 },
-                    name: '50% Confidence Interval',
-                    hoverinfo: 'skip'
-                }
-            ];
-            
-            const layout = {
-                title: `Forecast starting from ${cutoffDate}`,
-                xaxis: { title: 'Date' },
-                yaxis: { title: 'Wastewater Viral Activity Level' },
-                hovermode: 'x',
-                showlegend: true,
-                legend: { orientation: 'h', y: -0.2 }
-            };
-            
-            Plotly.newPlot('chart', traces, layout).then(function() {
-                alignSlider();
+            try {
+                const forecastData = await fetchForecast(cutoffDate);
 
-                // Also align on relayout (zoom/pan)
-                document.getElementById('chart').on('plotly_relayout', function(){
+                const trainData = allData.slice(0, cutoffIndex + 1);
+                const testData = allData.slice(cutoffIndex + 1); // Actual data after cutoff
+
+                const trainDates = trainData.map(d => d.date);
+                const trainValues = trainData.map(d => d.value);
+
+                const testDates = testData.map(d => d.date);
+                const testValues = testData.map(d => d.value);
+
+                const forecastDates = forecastData.forecast.map(d => d.date);
+                const forecastValues = forecastData.forecast.map(d => d.forecast);
+                const lowerBound = forecastData.forecast.map(d => d.lower);
+                const upperBound = forecastData.forecast.map(d => d.upper);
+
+                const traces = [
+                    // Training Data
+                    {
+                        x: trainDates,
+                        y: trainValues,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'Historical Data',
+                        line: { color: '#1f2937', width: 2 }
+                    },
+                    // Actual Future Data (if any)
+                    {
+                        x: testDates,
+                        y: testValues,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'Actual (Comparison)',
+                        line: { color: '#1f2937', width: 2, dash: 'dot' }
+                    },
+                    // Forecast
+                    {
+                        x: forecastDates,
+                        y: forecastValues,
+                        type: 'scatter',
+                        mode: 'lines',
+                        name: 'Forecast',
+                        line: { color: '#2563eb', width: 3 }
+                    },
+                    // Confidence Interval (Lower)
+                    {
+                        x: forecastDates,
+                        y: lowerBound,
+                        type: 'scatter',
+                        mode: 'lines',
+                        line: { width: 0 },
+                        showlegend: false,
+                        hoverinfo: 'skip'
+                    },
+                    // Confidence Interval (Upper)
+                    {
+                        x: forecastDates,
+                        y: upperBound,
+                        type: 'scatter',
+                        mode: 'lines',
+                        fill: 'tonexty',
+                        fillcolor: 'rgba(37, 99, 235, 0.2)',
+                        line: { width: 0 },
+                        name: '50% Confidence Interval',
+                        hoverinfo: 'skip'
+                    }
+                ];
+
+                const layout = {
+                    title: `Forecast starting from ${cutoffDate}`,
+                    xaxis: { title: 'Date' },
+                    yaxis: { title: 'Wastewater Viral Activity Level' },
+                    hovermode: 'x',
+                    showlegend: true,
+                    legend: { orientation: 'h', y: -0.2 }
+                };
+
+                Plotly.react('chart', traces, layout).then(function() {
                     alignSlider();
+
+                    // Also align on relayout (zoom/pan)
+                    document.getElementById('chart').on('plotly_relayout', function(){
+                        alignSlider();
+                    });
                 });
-            });
+            } catch (e) {
+                console.error("Error in updateChart:", e);
+            }
         }
 
         // Initialize
