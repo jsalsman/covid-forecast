@@ -40,7 +40,7 @@ jobs:
             --recipe-dir pyodide-repo/packages \
             --install-dir dist \
             --install \
-            pandas statsmodels scipy micropip
+            pandas statsmodels
 
       - name: Download Base Pyodide Runtime
         run: |
