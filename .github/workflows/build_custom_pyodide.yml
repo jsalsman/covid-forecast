@@ -37,7 +37,7 @@ jobs:
           export PYODIDE_ROOT=$(pwd)/pyodide-repo
 
           # Source the Pyodide environment variables (required for build flags and paths)
-          source $PYODIDE_ROOT/pyodide_env.sh
+          . $PYODIDE_ROOT/pyodide_env.sh
 
           # Build the requested packages
           pyodide build-recipes \
