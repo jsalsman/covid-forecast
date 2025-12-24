@@ -6,7 +6,7 @@
     <title>COVID Wastewater Forecast</title>
     <link href="styles.css" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <script src="./pyodide.js"></script>
     <style>
         /* Custom slider styles */
         input[type=range] {
@@ -69,8 +69,11 @@
 
     <script>
         // --- Web Worker Code ---
+        // Dynamically determine the base URL to allow absolute imports in Blob Worker
+        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+
         const workerCode = `
-            importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js");
+            importScripts("${baseUrl}pyodide.js");
 
             function updateStatus(msg) {
                 self.postMessage({ type: 'status', message: msg });
@@ -79,11 +82,21 @@
 
             async function loadPyodideAndPackages() {
                 self.updateStatus("Loading Pyodide...");
-                self.pyodide = await loadPyodide();
-                self.updateStatus("Loading pandas...");
-                await self.pyodide.loadPackage(["pandas"]);
-                self.updateStatus("Loading statsmodels...");
-                await self.pyodide.loadPackage(["statsmodels"]);
+                // Load Pyodide from local files
+                self.pyodide = await loadPyodide({
+                    indexURL: "${baseUrl}"
+                });
+
+                self.updateStatus("Loading packages...");
+                // Since we built a custom distribution, pandas and statsmodels should be
+                // in the lock file loaded by default.
+                // We use micropip to install them to ensure dependencies are resolved
+                // from the local lock file.
+                await self.pyodide.loadPackage("micropip");
+                const micropip = self.pyodide.pyimport("micropip");
+
+                self.updateStatus("Loading pandas & statsmodels...");
+                await micropip.install(['pandas', 'statsmodels']);
             }
 
             let pyodideReadyPromise = loadPyodideAndPackages();
