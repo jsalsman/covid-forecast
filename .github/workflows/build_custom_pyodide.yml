@@ -1,0 +1,93 @@
+name: Build Custom Pyodide Distribution
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - jsport
+    paths:
+      - '.github/workflows/build_custom_pyodide.yml'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: pyodide/pyodide-env:20240127-chrome114-firefox122-py312
+    steps:
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Pyodide Recipes
+        uses: actions/checkout@v4
+        with:
+          repository: pyodide/pyodide
+          path: pyodide-repo
+          ref: 0.26.0  # Match the version of the docker env/runtime we want
+
+      - name: Build Packages
+        shell: bash
+        run: |
+          # Create a directory for our custom distribution
+          mkdir -p dist
+
+          # Set PYODIDE_ROOT so the build tool knows where the source tree is
+          export PYODIDE_ROOT=$(pwd)/pyodide-repo
+
+          # Source the Pyodide environment variables (required for build flags and paths)
+          source $PYODIDE_ROOT/pyodide_env.sh
+
+          # Build the requested packages
+          # We include scipy because statsmodels depends on it and we want to ensure compatibility/locality
+          # We include micropip to manage installations
+          pyodide build-recipes \
+            --recipe-dir $PYODIDE_ROOT/packages \
+            --install-dir $(pwd)/dist \
+            --install \
+            pandas statsmodels scipy micropip
+
+      - name: Download Base Pyodide Runtime
+        run: |
+          # Download the core Pyodide files that match our build environment (v0.26.0)
+          # We download them into the 'dist' folder so everything is together
+          BASE_URL="https://cdn.jsdelivr.net/pyodide/v0.26.0/full"
+          wget -P dist $BASE_URL/pyodide.js
+          wget -P dist $BASE_URL/pyodide.asm.js
+          wget -P dist $BASE_URL/pyodide.asm.wasm
+          wget -P dist $BASE_URL/pyodide_py.tar
+
+          # Note: pyodide-lock.json was already generated in 'dist' by the build-recipes command
+          # but it might only contain the packages we built.
+          # We usually need to merge it or rely on micropip to find the rest.
+          # However, build-recipes --install creates a lock file for the installed packages.
+
+      - name: Copy Application Files
+        run: |
+          cp index.html dist/
+          cp styles.css dist/
+          cp loading.gif dist/
+
+      - name: Verify Artifacts
+        run: ls -lh dist
+
+      - name: Upload Artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
