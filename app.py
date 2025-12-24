@@ -7,7 +7,7 @@ import requests
 from io import StringIO
 from datetime import datetime, timedelta
 
-app = Flask(__name__)
+app = Flask(__name__, template_folder='.')
 
 DATA_URL = "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv"
 LOCAL_FILE = "covid_data.csv"
@@ -55,7 +55,7 @@ def get_data():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index-template.html')
 
 @app.route('/api/data')
 def api_data():
