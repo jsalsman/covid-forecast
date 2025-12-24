@@ -16,7 +16,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: pyodide/pyodide-env:20240125-py311-chrome121-firefox122
+    container: pyodide/pyodide-env:20231211-py311-chrome114-firefox115
     steps:
       - name: Checkout this repo
         uses: actions/checkout@v4
@@ -40,7 +40,7 @@ jobs:
             --recipe-dir pyodide-repo/packages \
             --install-dir dist \
             --install \
-            numpy patsy pandas statsmodels scipy micropip packaging pyparsing python-dateutil pytz six
+            pandas statsmodels
 
       - name: Download Base Pyodide Runtime
         run: |
