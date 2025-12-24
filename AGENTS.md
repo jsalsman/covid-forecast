@@ -6,6 +6,17 @@ This document outlines the architecture, coding conventions, and operational det
 
 The application is a **Single-Page Application (SPA)** contained primarily in `index.html`. It uses a **Web Worker** to run Python code via **Pyodide**, keeping the main UI thread responsive.
 
+Since this application uses Web Workers and fetches external data, it must be served over HTTP(S) rather than opening the file directly (due to CORS and worker restrictions).
+
+You can use Python's built-in HTTP server:
+
+```bash
+# Run a simple HTTP server on port 8000
+python3 -m http.server 8000
+```
+
+Then navigate to `http://localhost:8000` in your web browser.
+
 ### Key Components
 
 1.  **`index.html`**:
