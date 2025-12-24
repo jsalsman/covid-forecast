@@ -36,13 +36,15 @@ jobs:
           # Set PYODIDE_ROOT so the build tool knows where the source tree is
           export PYODIDE_ROOT=$(pwd)/pyodide-repo
 
+          # Source the Pyodide environment variables (required for build flags and paths)
+          source $PYODIDE_ROOT/pyodide_env.sh
+
           # Build the requested packages
-          # We include scipy because statsmodels depends on it and we want to ensure compatibility/locality
           pyodide build-recipes \
             --recipe-dir $PYODIDE_ROOT/packages \
             --install-dir $(pwd)/dist \
             --install \
-            pandas statsmodels scipy
+            pandas statsmodels
 
       - name: Download Base Pyodide Runtime
         run: |
