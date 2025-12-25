@@ -108,7 +108,7 @@ EOF
 node make_snapshot.mjs
 ```
 
-Then serve the whole `dist` directory at `/pyodide/` in the Pages branch `jsport`, and use it like this:
+Then serve the whole `dist` directory (minus the test files) at `/custom-pyodide/` in the Pages branch `jsport`, and use it like this:
 
 ```
 <script src="custom-pyodide/pyodide.js"></script>
