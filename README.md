@@ -82,6 +82,7 @@ cp ../make_preload.py .
 make
 git clone https://github.com/pyodide/pyodide-recipes
 pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/packages --install
+# That takes a little over an hour on a 2-core GitHub Codespace; so use 4 cores
 python make_preload.py
 exit
 cp -pr ./custom-pyodide/ ..
