@@ -1,12 +1,13 @@
 name: Build Custom Pyodide Distribution
 
-on:
-  workflow_dispatch:
-  push:
-    branches:
-      - jsport
-    paths:
-      - '.github/workflows/build_custom_pyodide.yml'
+
+#on:
+#  workflow_dispatch:
+#  push:
+#    branches:
+#      - jsport
+#    paths:
+#      - '.github/workflows/build_custom_pyodide.yml'
 
 permissions:
   contents: write
