@@ -192,7 +192,7 @@ def run_forecast(cutoff_date_str):
 
     for i in range(n_simulations):
         if (i + 1) % 10 == 0:
-            js.updateStatus(f"{i+1} out of {n_simulations} simulations...")
+            js.updateStatus(f"Ran {i+1} Monte Carlo simulations for confidence intervals...")
         sim = model_fit.simulate(forecast_steps, anchor='end')
         simulations[:, i] = sim.values
 
