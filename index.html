@@ -187,11 +187,32 @@ def run_forecast(cutoff_date_str):
     n_simulations = 500
     simulations = np.zeros((forecast_steps, n_simulations))
 
+    prev_lower = None
+    prev_upper = None
+
     for i in range(n_simulations):
-        if i % 10 == 0:
-            js.updateStatus(f"{i} out of {n_simulations} simulations...")
+        if (i + 1) % 10 == 0:
+            js.updateStatus(f"{i+1} out of {n_simulations} simulations...")
         sim = model_fit.simulate(forecast_steps, anchor='end')
         simulations[:, i] = sim.values
+
+        if (i + 1) % 10 == 0:
+            current_sims = simulations[:, :i+1]
+            current_lower = np.nanpercentile(current_sims, 25, axis=1)
+            current_upper = np.nanpercentile(current_sims, 75, axis=1)
+
+            if prev_lower is not None and prev_upper is not None:
+                diff_lower = np.mean(np.abs(current_lower - prev_lower) / (np.abs(prev_lower) + 1e-9))
+                diff_upper = np.mean(np.abs(current_upper - prev_upper) / (np.abs(prev_upper) + 1e-9))
+                mean_diff = (diff_lower + diff_upper) / 2
+
+                if mean_diff < 0.05:
+                    js.updateStatus(f"Converged at {i+1} simulations. Stopping.")
+                    simulations = simulations[:, :i+1]
+                    break
+
+            prev_lower = current_lower
+            prev_upper = current_upper
 
     lower_bound = np.nanpercentile(simulations, 25, axis=1)
     upper_bound = np.nanpercentile(simulations, 75, axis=1)
