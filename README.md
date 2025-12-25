@@ -116,6 +116,8 @@ Then serve the whole `dist` directory at `/pyodide/` in the Pages branch `jsport
 const pyodide = await loadPyodide({ indexURL: "custom-pyodide/" });
 ```
 
+**HOWEVER, this is currently blocked by this issue:** https://github.com/pyodide/pyodide/issues/5195
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
