@@ -93,6 +93,23 @@
                     await self.pyodide.unpackArchive(buf, "zip", "/");
                 }
 
+                try {
+                    // Workaround for scipy finding libopenblas
+                    await self.pyodide.runPythonAsync(
+                        "import shutil\\n" +
+                        "import os\\n" +
+                        "if os.path.exists('/libopenblas.so'):\\n" +
+                        "    shutil.copy('/libopenblas.so', '/lib/libopenblas.so')\\n" +
+                        "    # Also copy to scipy/linalg where _fblas.so lives, in case of RPATH issues\\n" +
+                        "    scipy_lib_path = '/lib/python3.13/site-packages/scipy/linalg'\\n" +
+                        "    if os.path.exists(scipy_lib_path):\\n" +
+                        "        shutil.copy('/libopenblas.so', os.path.join(scipy_lib_path, 'libopenblas.so'))"
+                    );
+                    self.pyodide._module.loadDynamicLibrary("/lib/libopenblas.so");
+                } catch (e) {
+                    console.warn("Could not load libopenblas.so:", e);
+                }
+
                 self.updateStatus("Importing pandas...");
                 await self.pyodide.runPythonAsync("import pandas as pd");
                 self.updateStatus("Importing statsmodels...");
