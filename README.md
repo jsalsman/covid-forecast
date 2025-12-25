@@ -43,19 +43,6 @@ The entire application logic is contained within `index.html`.
 
 ## Usage
 
-### Building the Custom Pyodide Distribution
-
-TODO: To improve loading times and avoid relying on external CDNs, this repository WILL SOON includes a custom Pyodide distribution containing `pandas` and `statsmodels`. It is being built thusly:
-
-```
-git clone --recursive https://github.com/pyodide/pyodide
-cd pyodide
-./run_docker
-make
-git clone https://github.com/pyodide/pyodide-recipes
-pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/packages --install
-```
-
 ### Running Locally
 
 Since this application uses Web Workers and fetches external data, it must be served over HTTP(S) rather than opening the file directly (due to CORS and worker restrictions).
@@ -80,6 +67,54 @@ Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edg
 - `AGENTS.md`: Instructions for AI agents and developers.
 - `README.md`: This documentation.
 - `LICENSE`: MIT License.
+
+## Ideas for the future
+
+### Building a Custom Pyodide Distribution with a Memory Snapshot
+
+To improve loading times and avoid relying on external CDNs, this we could includes a custom Pyodide distribution containing `pandas` and `statsmodels`. It would be built thusly, per https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution :
+
+```
+git clone --recursive https://github.com/pyodide/pyodide
+cd pyodide
+./run_docker
+make
+git clone https://github.com/pyodide/pyodide-recipes
+pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/packages --install
+# That takes a little over an hour
+
+cat > make_snapshot.mjs <<'EOF'
+import fs from "node:fs";
+import { loadPyodide } from "./dist/pyodide.mjs";
+
+const pyodide = await loadPyodide({
+  indexURL: "./dist/",
+  _makeSnapshot: true,
+});
+
+// Put the expensive installs into the snapshot
+await pyodide.loadPackage(["pandas", "statsmodels"]);
+await pyodide.runPythonAsync("import pandas, statsmodels");
+
+// API name varies by version
+const snap =
+  typeof pyodide.makeSnapshot === "function"
+    ? pyodide.makeSnapshot()
+    : pyodide.makeMemorySnapshot();
+
+fs.writeFileSync("./dist/snapshot.bin", Buffer.from(snap));
+EOF
+
+node make_snapshot.mjs
+```
+
+Then serve the whole `dist` directory at `/pyodide/` in the Pages branch `jsport`, and use it like this:
+
+```
+<script src="custom-pyodide/pyodide.js"></script>
+...
+const pyodide = await loadPyodide({ indexURL: "custom-pyodide/" });
+```
 
 ## License
 
