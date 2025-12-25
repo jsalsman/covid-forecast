@@ -45,17 +45,16 @@ The entire application logic is contained within `index.html`.
 
 ### Building the Custom Pyodide Distribution
 
-To improve loading times and avoid relying on external CDNs, this repository includes a GitHub Actions workflow to build a custom Pyodide distribution containing `pandas` and `statsmodels`.
+TODO: To improve loading times and avoid relying on external CDNs, this repository WILL SOON includes a custom Pyodide distribution containing `pandas` and `statsmodels`. It is being built thusly:
 
-To trigger a rebuild manually:
-1. Go to the **Actions** tab in the GitHub repository.
-2. Select the **Build Custom Pyodide Distribution** workflow.
-3. Click **Run workflow**.
-
-This will:
-1. Build `pandas` and `statsmodels` (and dependencies) from source using the Pyodide build environment.
-2. Download the base Pyodide runtime.
-3. Deploy the artifacts to the `gh-pages` branch.
+```
+git clone --recursive https://github.com/pyodide/pyodide
+cd pyodide
+./run_docker
+make
+git clone https://github.com/pyodide/pyodide-recipes
+pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/packages --install
+```
 
 ### Running Locally
 
