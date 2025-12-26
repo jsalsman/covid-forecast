@@ -44,18 +44,10 @@ for z in sorted(dist.glob("*.zip")):
 
 # Ensure shared libraries are in standard library search paths.
 # They are typically extracted to the root by the zip expansion above.
-lib_dir = stage / "lib"
-lib_dir.mkdir(parents=True, exist_ok=True)
-for so in stage.glob("*.so"):
-    print(f"DEBUG: copying {so}")
-
-    # Approach 1. Copy .so to lib_dir
-    # shutil.copy2(so, lib_dir / so.name)
-
-    # Approach 2. Put in scipy/linalg (RPATH fallback)
-    scipy_linalg = sitepkgs / "scipy" / "linalg"
-    if scipy_linalg.exists():
-        shutil.copy2(so, scipy_linalg / so.name)
+# Pyodide adds site-packages to LD_LIBRARY_PATH, so we move them there.
+for so in list(stage.glob("*.so")):
+    print(f"DEBUG: moving {so} to {sitepkgs}")
+    shutil.move(so, sitepkgs / so.name)
 
 # Create one unified archive containing everything staged above.
 pkgzip = out / "packages.zip"
