@@ -42,7 +42,7 @@
         </p>
 
         <div class="bg-white rounded-lg shadow-lg p-6 relative">
-            <div id="loading-overlay" class="absolute inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-start z-50 pt-20">
+            <div id="loading-overlay" class="fixed inset-0 bg-white bg-opacity-75 flex flex-col items-center justify-center z-50">
                 <img src="loading.gif" alt="Loading..." class="w-16 h-16 mb-4">
                 <p id="loading-text" class="text-lg font-semibold text-gray-700 text-center">Initializing Python Environment...</p>
                 <p class="text-sm text-gray-500">(This may take a minute or two.)</p>
@@ -64,6 +64,9 @@
                     <a href="https://www.cdc.gov/nwss/data-methods.html" class="text-blue-600 underline">activity level</a> of 30.</p>
             </div>
         </div>
+        <p class="text-center mb-4 text-gray-600">
+            The code for this web app is <a href="https://github.com/jsalsman/covid-forecast">on GitHub.</a>
+        </p>
     </div>
 
     <script>
@@ -432,12 +435,13 @@ def run_forecast(cutoff_date_str):
             const layout = {
                 yaxis: { title: 'Wastewater Viral Activity Level' },
                 hovermode: 'x',
+                dragmode: false,
                 showlegend: true,
                 legend: { orientation: 'h', y: 1.1 },
                 margin: { t: 0, b: 25, l: 40, r: 0 }
             };
 
-            Plotly.react('chart', traces, layout).then(() => {
+            Plotly.react('chart', traces, layout, { displayModeBar: false }).then(() => {
                 alignSlider();
                 loadingOverlay.classList.add('hidden');
                 loadingOverlay.classList.remove('flex');
