@@ -85,7 +85,7 @@ pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/package
 # That takes a little over an hour on a 2-core GitHub Codespace; so use 4 cores
 python make_preload.py
 exit
-cp -pr ./custom-pyodide/ ..
+cp -pr custom-pyodide ..
 cd ..
 git add custom-pyodide
 git commit -m "Update custom pyodide build"
