@@ -68,6 +68,30 @@ Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edg
 - `README.md`: This documentation.
 - `LICENSE`: MIT License.
 
+## Building a Custom Pyodide Distribution
+
+To improve loading times and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.zip`) rather than downloading packages individually.
+
+The custom distribution was built using the following commands:
+
+```bash
+git clone --recursive https://github.com/pyodide/pyodide
+cd pyodide
+cp ../make_preload.py .
+./run_docker
+make
+git clone https://github.com/pyodide/pyodide-recipes
+pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/packages --install
+python make_preload.py
+exit
+cp -pr ./custom-pyodide/ ..
+git add ../custom-pyodide
+git commit -m "Update custom pyodide build"
+git push
+```
+
+The `custom-pyodide` directory is then served alongside `index.html`.
+
 ## Ideas for the future
 
 ### Building a Custom Pyodide Distribution with a Memory Snapshot

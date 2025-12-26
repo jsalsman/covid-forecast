@@ -6,7 +6,6 @@
     <title>COVID Wastewater Forecast</title>
     <link href="styles.css" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
         /* Custom slider styles */
         input[type=range] {
@@ -69,8 +68,11 @@
 
     <script>
         // --- Web Worker Code ---
+        // Resolve base URL to ensure worker can find files relative to index.html
+        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
+
         const workerCode = `
-            importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js");
+            importScripts("${baseUrl}custom-pyodide/pyodide.js");
 
             function updateStatus(msg) {
                 self.postMessage({ type: 'status', message: msg });
@@ -79,11 +81,24 @@
 
             async function loadPyodideAndPackages() {
                 self.updateStatus("Loading Pyodide...");
-                self.pyodide = await loadPyodide();
-                self.updateStatus("Loading pandas...");
-                await self.pyodide.loadPackage(["pandas"]);
-                self.updateStatus("Loading statsmodels...");
-                await self.pyodide.loadPackage(["statsmodels"]);
+                self.pyodide = await loadPyodide({ indexURL: "${baseUrl}custom-pyodide/" });
+
+                self.updateStatus("Unpacking packages...");
+                const resp = await fetch("${baseUrl}custom-pyodide/packages.zip");
+                const buf = await resp.arrayBuffer();
+
+                try {
+                    await self.pyodide.unpackArchive(buf, "zip", { extractDir: "/" });
+                } catch (e) {
+                    await self.pyodide.unpackArchive(buf, "zip", "/");
+                }
+
+
+                self.updateStatus("Importing pandas...");
+                await self.pyodide.runPythonAsync("import pandas as pd");
+                self.updateStatus("Importing statsmodels...");
+                await self.pyodide.runPythonAsync("from statsmodels.tsa.holtwinters import ExponentialSmoothing");
+                self.updateStatus("Imported packages...");
             }
 
             let pyodideReadyPromise = loadPyodideAndPackages();
