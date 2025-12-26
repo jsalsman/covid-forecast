@@ -11,7 +11,7 @@ for path in [out, stage]:
         shutil.rmtree(path)
 out.mkdir(parents=True)
 
-# The build produced cp313 wheels; stage them under the expected runtime path
+# The build produced cp313 wheels; stage under the corresponding path
 sitepkgs = stage / "lib" / "python3.13" / "site-packages"
 sitepkgs.mkdir(parents=True)
 
@@ -36,12 +36,14 @@ for so in list(stage.glob("*.so")):
 
 # Create one unified archive containing everything staged above.
 pkgzip = out / "packages.zip"
-with zipfile.ZipFile(pkgzip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+with zipfile.ZipFile(pkgzip, "w", compression=zipfile.ZIP_DEFLATED,
+                     compresslevel=9) as zf:  # compresslevel=9 is fastest to unpack
     for p in sorted(stage.rglob("*")):
         zf.write(p, p.relative_to(stage).as_posix())
 
 # Copy the runtime essentials
-for name in ["pyodide.js", "pyodide.asm.js", "pyodide.asm.wasm", "python_stdlib.zip", "pyodide-lock.json", "pyodide.mjs"]:
+for name in ["pyodide.js", "pyodide.asm.js", "pyodide.asm.wasm",
+             "python_stdlib.zip", "pyodide-lock.json", "pyodide.mjs"]:
     if (src := dist / name).exists():
         shutil.copy2(src, out / name)
 
