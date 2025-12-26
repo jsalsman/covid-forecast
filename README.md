@@ -70,7 +70,7 @@ Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edg
 
 ## Building a Custom Pyodide Distribution
 
-To improve loading times and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.zip`) rather than downloading packages individually.
+To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.zip`) rather than downloading packages individually.
 
 The custom distribution was built using the following commands:
 
@@ -82,10 +82,12 @@ cp ../make_preload.py .
 make
 git clone https://github.com/pyodide/pyodide-recipes
 pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/packages --install
+# That takes a little over an hour on a 2-core GitHub Codespace; so use 4 cores
 python make_preload.py
 exit
 cp -pr ./custom-pyodide/ ..
-git add ../custom-pyodide
+cd ..
+git add custom-pyodide
 git commit -m "Update custom pyodide build"
 git push
 ```
@@ -96,7 +98,7 @@ The `custom-pyodide` directory is then served alongside `index.html`.
 
 ### Building a Custom Pyodide Distribution with a Memory Snapshot
 
-To improve loading times and avoid relying on external CDNs, this we could includes a custom Pyodide distribution containing `pandas` and `statsmodels`. It would be built thusly, per https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution :
+To further improve loading time, we could include a memory snapshot in the distribution containing `pandas` and `statsmodels`. It would be built thusly, per https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution :
 
 ```
 git clone --recursive https://github.com/pyodide/pyodide

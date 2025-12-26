@@ -93,7 +93,6 @@
                     await self.pyodide.unpackArchive(buf, "zip", "/");
                 }
 
-
                 self.updateStatus("Importing pandas...");
                 await self.pyodide.runPythonAsync("import pandas as pd");
                 self.updateStatus("Importing statsmodels...");
