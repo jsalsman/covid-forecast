@@ -20,7 +20,7 @@ Then navigate to `http://localhost:8000` in your web browser.
 ### Key Components
 
 1.  **`index.html`**:
-    *   **Head**: Loads Tailwind CSS (via pre-compiled `styles.css`), Plotly.js, and Pyodide.js. Defines custom styles for the slider.
+    *   **Head**: Loads Tailwind CSS (via static `styles.css`), Plotly.js, and Pyodide.js. Defines custom styles for the slider.
     *   **Body**: UI layout.
     *   **Script**:
         *   `workerCode` (String): Contains the Python script and Web Worker logic.
@@ -28,10 +28,11 @@ Then navigate to `http://localhost:8000` in your web browser.
         *   `alignSlider`: Critical function to visually sync the HTML slider with the Plotly x-axis.
 
 2.  **Styles**:
-    *   Tailwind CSS is implemented using a pre-compiled `styles.css` file generated via the Tailwind v4 standalone binary.
+    *   **Static CSS**: There is no active Tailwind build system. `styles.css` is a static file containing pre-generated Tailwind utilities.
+    *   **Adding Styles**: Missing utility classes must be manually added to `styles.css` when needed. Do not expect them to be generated automatically.
 
 3.  **Python Script (embedded in `workerCode`)**:
-    *   **Pyodide Loading**: The loading sequence is explicitly split into separate `loadPackage` calls (e.g., separate steps for 'pandas' and 'statsmodels') to allow for granular status updates in the UI.
+    *   **Pyodide Loading**: The app uses a custom Pyodide distribution. Instead of `loadPackage`, it fetches and manually unpacks a `packages.zip` archive containing the required dependencies (`pandas`, `statsmodels`, etc.).
     *   **Execution**: Complex model execution logic is offloaded to the Web Worker.
     *   **Status Updates**: Real-time status updates are implemented by importing the `js` module and calling `js.updateStatus` to post messages to the main thread.
 
@@ -40,7 +41,7 @@ Then navigate to `http://localhost:8000` in your web browser.
 ### 1. Modifying the Python Logic
 The Python code is stored as a template string (`workerCode`) within the JavaScript.
 *   **Context**: Code runs inside the Pyodide environment in a Web Worker.
-*   **Packages**: Only packages supported by Pyodide (installed via `micropip` or standard library) can be used. Currently uses `pandas`, `statsmodels`, `scipy`.
+*   **Packages**: Only packages included in the `custom-pyodide/packages.zip` can be used.
 *   **Data Fetching**: Data is fetched directly from the CDC URL (`https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv`).
 *   **Data Processing**:
     *   **Indices**: Input data must have a unique datetime index with an inferred frequency; duplicate dates must be filtered out.
@@ -62,19 +63,24 @@ The Python code is stored as a template string (`workerCode`) within the JavaScr
     *   **Loading Indicators**: Overlays on charts are preferred to be positioned near the top of the chart area (e.g., using `items-start` and top padding).
     *   **Tailwind Visibility**: When toggling visibility using `flex`, the `flex` class must be explicitly removed when adding `hidden`, and re-added when removing `hidden`.
 
-### 3. Testing & Verification
+### 3. Custom Pyodide Distribution
+The application relies on a pre-built custom Pyodide distribution to optimize loading.
+*   **Location**: `custom-pyodide/` directory.
+*   **Build Process**: To update dependencies, you must rebuild the distribution. Follow the instructions in `README.md` which involve cloning Pyodide, building recipes, and using `make_preload.py`.
+
+### 4. Testing & Verification
 *   **Frontend Verification**: UI changes should be verified using Playwright scripts.
 *   **Wait Times**: Pyodide initialization involves downloading ~20MB+ of WASM/Python data. Tests (e.g., Playwright) must use extended timeouts (60s+) to verify graph updates.
 *   **UI State**: Verify loading overlays appear/disappear correctly. Use `try...finally` in async functions to ensure UI reset.
 *   **Visuals**: Check that the slider aligns perfectly with the graph's x-axis.
 
-### 4. Common Issues / Troubleshooting
+### 5. Common Issues / Troubleshooting
 *   **CORS Errors**: If data fetching fails, ensure the CDC URL allows CORS or that the app is being accessed via a proxy/correctly configured server. Note: The app fetches directly from CDC.
 *   **"Port already in use"**: If running a local server (e.g., `python -m http.server`), ensure the port is free.
 *   **Model Errors**: `statsmodels` is sensitive to data gaps or duplicate dates. The `get_data` function includes logic to drop duplicates and set the index frequency. Maintain this rigor.
 
-### 5. Deployment
-*   The app is a static site. Ensure `index.html`, `styles.css`, and `loading.gif` are present.
+### 6. Deployment
+*   The app is a static site. Ensure `index.html`, `styles.css`, `loading.gif`, and the `custom-pyodide/` directory are present.
 *   No backend is required.
 
 ## Constraints
