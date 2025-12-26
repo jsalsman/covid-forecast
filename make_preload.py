@@ -42,6 +42,18 @@ for z in sorted(dist.glob("*.zip")):
     with zipfile.ZipFile(z) as zf:
         zf.extractall(stage)
 
+# Ensure shared libraries are in standard library search paths.
+# They are typically extracted to the root by the zip expansion above.
+lib_dir = stage / "lib"
+lib_dir.mkdir(parents=True, exist_ok=True)
+for so in stage.glob("*.so"):
+    shutil.copy2(so, lib_dir / so.name)
+
+    # 2. Put in scipy/linalg (RPATH fallback)
+    # scipy_linalg = sitepkgs / "scipy" / "linalg"
+    # if scipy_linalg.exists():
+    #     shutil.copy2(so, scipy_linalg / so.name)
+
 # Create one unified archive containing everything staged above.
 pkgzip = out / "packages.zip"
 with zipfile.ZipFile(pkgzip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:

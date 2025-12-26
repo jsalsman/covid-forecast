@@ -86,7 +86,8 @@ pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/package
 python make_preload.py
 exit
 cp -pr ./custom-pyodide/ ..
-git add ../custom-pyodide
+cd ..
+git add custom-pyodide
 git commit -m "Update custom pyodide build"
 git push
 ```
