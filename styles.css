@@ -810,8 +810,8 @@
   .h-36 {
     height: calc(var(--spacing) * 36);
   }
-  .h-\[600px\] {
-    height: 600px;
+  .h-\[360px\] {
+    height: 360px;
   }
   .h-\[var\(--radix-select-trigger-height\)\] {
     height: var(--radix-select-trigger-height);
