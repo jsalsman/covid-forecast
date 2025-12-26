@@ -47,12 +47,15 @@ for z in sorted(dist.glob("*.zip")):
 lib_dir = stage / "lib"
 lib_dir.mkdir(parents=True, exist_ok=True)
 for so in stage.glob("*.so"):
-    shutil.copy2(so, lib_dir / so.name)
+    print(f"DEBUG: copying {so}")
 
-    # 2. Put in scipy/linalg (RPATH fallback)
-    # scipy_linalg = sitepkgs / "scipy" / "linalg"
-    # if scipy_linalg.exists():
-    #     shutil.copy2(so, scipy_linalg / so.name)
+    # Approach 1. Copy .so to lib_dir
+    # shutil.copy2(so, lib_dir / so.name)
+
+    # Approach 2. Put in scipy/linalg (RPATH fallback)
+    scipy_linalg = sitepkgs / "scipy" / "linalg"
+    if scipy_linalg.exists():
+        shutil.copy2(so, scipy_linalg / so.name)
 
 # Create one unified archive containing everything staged above.
 pkgzip = out / "packages.zip"
