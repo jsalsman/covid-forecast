@@ -4,7 +4,7 @@ This repository contains a purely client-side web application that forecasts Nat
 
 ## Overview
 
-The application fetches the latest wastewater data from the [CDC](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
+The application fetches the latest wastewater data from the [CDC](https://www.cdc.gov/nwss/rv/COVID19-national-data.html)'s [.csv file](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
 
 ### Key Features
 - **Client-Side Python:** Runs full data science stack (`pandas`, `scipy`, `statsmodels`) in the browser.
