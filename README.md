@@ -21,19 +21,18 @@ The entire application logic is contained within `index.html`.
 1. **Initialization:**
    - The browser loads `index.html`.
    - A **Web Worker** is spawned to initialize the Pyodide environment without blocking the main UI thread.
-   - Python packages (`pandas`, `statsmodels`, and all their dependencies) are downloaded and installed dynamically from the `custom-pyodide` files.
+   - Python packages (the standard libraries, `pandas`, `statsmodels`, and all their dependencies) are downloaded and installed dynamically from the `custom-pyodide` files.
 
 2. **Data Processing:**
    - The Python script fetches the CSV data from the CDC URL.
    - Data is cleaned: duplicates are removed, the index is set to `Week_Ending_Date`, and missing values are handled.
-   - The frequency of the time series is inferred to satisfy `statsmodels` requirements.
 
 3. **Forecasting:**
    - When the user adjusts the date slider, a message is sent to the Web Worker.
    - The Python script splits the data based on the selected cut-off date.
    - An `ExponentialSmoothing` model is fitted to the training data.
    - A 52-week forecast is generated.
-   - 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval).
+   - Up to 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval).
    - The upper bound is clamped at 30 (high activity level) for visualization purposes.
 
 4. **Visualization:**
@@ -64,8 +63,9 @@ Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edg
 
 - `index.html`: The core application file containing HTML, CSS (Tailwind), JavaScript (UI & Worker), and Python (Model).
 - `loading.gif`: A loading indicator displayed during initialization.
-- `AGENTS.md`: Instructions for AI agents and developers.
+- `favicon.ico`: Tab icon.
 - `README.md`: This documentation.
+- `AGENTS.md`: Instructions for AI agents and developers.
 - `LICENSE`: MIT License.
 
 ## Building a Custom Pyodide Distribution
@@ -76,8 +76,8 @@ The custom distribution was built using the following commands:
 
 ```bash
 git clone --recursive https://github.com/pyodide/pyodide
+cp make_preload.py pyodide
 cd pyodide
-cp ../make_preload.py .
 ./run_docker
 make
 git clone https://github.com/pyodide/pyodide-recipes
@@ -85,7 +85,8 @@ pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/package
 # That takes a little over an hour on a 2-core GitHub Codespace; so use 4 cores
 python make_preload.py
 exit
-rm -rf ../custom-pyodide && cp -pr custom-pyodide ..
+rm -rf ../custom-pyodide
+cp -r custom-pyodide ..
 cd ..
 git add custom-pyodide
 git commit -m "Update custom pyodide build"
