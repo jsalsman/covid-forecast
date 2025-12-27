@@ -21,7 +21,7 @@ The entire application logic is contained within `index.html`.
 1. **Initialization:**
    - The browser loads `index.html`.
    - A **Web Worker** is spawned to initialize the Pyodide environment without blocking the main UI thread.
-   - Python packages (`pandas`, `statsmodels`, `scipy`) are downloaded and installed dynamically.
+   - Python packages (`pandas`, `statsmodels`, and all their dependencies) are downloaded and installed dynamically from the `custom-pyodide` files.
 
 2. **Data Processing:**
    - The Python script fetches the CSV data from the CDC URL.
