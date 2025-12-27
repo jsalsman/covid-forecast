@@ -205,7 +205,7 @@ def run_forecast(cutoff_date_str):
 
     for i in range(n_simulations):
         if (i + 1) % 10 == 0:
-            js.updateStatus(f"Ran {i+1} Monte Carlo simulations for confidence intervals...")
+            js.updateStatus(f"Ran {i+1} Monte Carlo simulations<br/>for confidence intervals...")
         sim = model_fit.simulate(forecast_steps, anchor='end')
         simulations[:, i] = sim.values
 
@@ -343,7 +343,7 @@ def run_forecast(cutoff_date_str):
         function requestForecast(cutoffIndex) {
             loadingOverlay.classList.remove('hidden');
             loadingOverlay.classList.add('flex');
-            loadingText.innerText = "Calculating Forecast...";
+            loadingText.innerText = "Calculating forecast...";
 
             const cutoffDate = dates[cutoffIndex];
             cutoffLabel.innerText = cutoffDate;
