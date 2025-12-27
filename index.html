@@ -90,12 +90,7 @@
                 self.updateStatus("Unpacking packages...");
                 const resp = await fetch("${baseUrl}custom-pyodide/packages.zip");
                 const buf = await resp.arrayBuffer();
-
-                try {
-                    await self.pyodide.unpackArchive(buf, "zip", { extractDir: "/" });
-                } catch (e) {
-                    await self.pyodide.unpackArchive(buf, "zip", "/");
-                }
+                await self.pyodide.unpackArchive(buf, "zip", "/");
 
                 self.updateStatus("Importing pandas...");
                 await self.pyodide.runPythonAsync("import pandas as pd");
