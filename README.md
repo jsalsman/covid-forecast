@@ -70,7 +70,7 @@ Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edg
 
 ## Building a Custom Pyodide Distribution
 
-To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.zip`) rather than downloading packages individually.
+To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.tgz`) rather than downloading packages individually.
 
 The custom distribution was built using the following commands:
 
