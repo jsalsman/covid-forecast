@@ -1,5 +1,5 @@
 from pathlib import Path
-import shutil, zipfile
+import shutil, zipfile, tarfile
 
 dist = Path("dist")
 out = Path("custom-pyodide")
@@ -35,11 +35,9 @@ for so in list(stage.glob("*.so")):
     shutil.move(so, sitepkgs / so.name)
 
 # Create one unified archive containing everything staged above.
-pkgzip = out / "packages.zip"
-with zipfile.ZipFile(pkgzip, "w", compression=zipfile.ZIP_DEFLATED,
-                     compresslevel=9) as zf:  # compresslevel=9 is fastest to unpack
-    for p in sorted(stage.rglob("*")):
-        zf.write(p, p.relative_to(stage).as_posix())
+with tarfile.open(out / "packages.tgz", "w:gz") as tf:
+    for p in sorted(stage.glob("*")):
+        tf.add(p, arcname=p.relative_to(stage))
 
 # Copy the runtime essentials
 for name in ["pyodide.js", "pyodide.asm.js", "pyodide.asm.wasm",
