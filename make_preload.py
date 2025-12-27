@@ -11,7 +11,7 @@ for path in [out, stage]:
         shutil.rmtree(path)
 out.mkdir(parents=True)
 
-# The build produced cp313 wheels; stage under the corresponding path
+# The build produced cp313 wheels; stage under the corresponding path -- NOTE WELL: Check this after 2025
 sitepkgs = stage / "lib" / "python3.13" / "site-packages"
 sitepkgs.mkdir(parents=True)
 
