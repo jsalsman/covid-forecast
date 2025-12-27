@@ -2,6 +2,10 @@
 
 This document outlines the architecture, coding conventions, and operational details for maintaining and supporting the `index.html` application.
 
+## Development Workflow
+
+*   **Deep Planning Mode**: Before starting any task, ensure requirements are fully understood through iterative questioning using `request_user_input` or `message_user` before setting a plan.
+
 ## Architecture
 
 The application is a **Single-Page Application (SPA)** contained primarily in `index.html`. It uses a **Web Worker** to run Python code via **Pyodide**, keeping the main UI thread responsive.
@@ -32,7 +36,7 @@ Then navigate to `http://localhost:8000` in your web browser.
     *   **Adding Styles**: Missing utility classes must be manually added to `styles.css` when needed. Do not expect them to be generated automatically.
 
 3.  **Python Script (embedded in `workerCode`)**:
-    *   **Pyodide Loading**: The app uses a custom Pyodide distribution. Instead of `loadPackage`, it fetches and manually unpacks a `packages.zip` archive containing the required dependencies (`pandas`, `statsmodels`, etc.).
+    *   **Pyodide Loading**: The app uses a custom Pyodide distribution. Instead of `loadPackage`, it fetches and manually unpacks a `packages.tgz` archive containing the required dependencies (`pandas`, `statsmodels`, etc.).
     *   **Execution**: Complex model execution logic is offloaded to the Web Worker.
     *   **Status Updates**: Real-time status updates are implemented by importing the `js` module and calling `js.updateStatus` to post messages to the main thread.
 
@@ -41,7 +45,7 @@ Then navigate to `http://localhost:8000` in your web browser.
 ### 1. Modifying the Python Logic
 The Python code is stored as a template string (`workerCode`) within the JavaScript.
 *   **Context**: Code runs inside the Pyodide environment in a Web Worker.
-*   **Packages**: Only packages included in the `custom-pyodide/packages.zip` can be used.
+*   **Packages**: Only packages included in the `custom-pyodide/packages.tgz` can be used.
 *   **Data Fetching**: Data is fetched directly from the CDC URL (`https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv`).
 *   **Data Processing**:
     *   **Indices**: Input data must have a unique datetime index with an inferred frequency; duplicate dates must be filtered out.
@@ -66,7 +70,7 @@ The Python code is stored as a template string (`workerCode`) within the JavaScr
 ### 3. Custom Pyodide Distribution
 The application relies on a pre-built custom Pyodide distribution to optimize loading.
 *   **Location**: `custom-pyodide/` directory.
-*   **Build Process**: To update dependencies, you must rebuild the distribution. Follow the instructions in `README.md` which involve cloning Pyodide, building recipes, and using `make_preload.py`.
+*   **Build Process**: To update dependencies, you must rebuild the distribution. Follow the instructions in `README.md` which involve cloning Pyodide, building recipes, and using `make_preload.py`. The script `make_preload.py` bundles Python dependencies by staging files in `_stage_pkgs` and produces the final artifact at `custom-pyodide/packages.tgz`.
 
 ### 4. Testing & Verification
 *   **Frontend Verification**: UI changes should be verified using Playwright scripts.
