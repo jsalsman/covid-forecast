@@ -7,7 +7,7 @@ This repository contains a purely client-side web application that forecasts Nat
 The application fetches the latest wastewater data from the [CDC](https://www.cdc.gov/nwss/rv/COVID19-national-data.html)'s [.csv file](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
 
 ### Key Features
-- **Client-Side Python:** Runs full data science stack (`pandas`, `scipy`, `statsmodels`) in the browser.
+- **Client-Side Python:** Runs full data science stack (`pandas`, `statsmodels`, and all their dependencies) in the browser.
 - **Interactive Visualization:** Uses [Plotly.js](https://plotly.com/javascript/) for interactive charts.
 - **Forecast Model:** Implements Holt-Winters Exponential Smoothing with 52-week seasonality and damped trend.
 - **Confidence Intervals:** Calculates 50% confidence intervals using Monte Carlo simulations.
