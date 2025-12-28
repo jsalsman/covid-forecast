@@ -64,6 +64,7 @@ Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edg
 - `index.html`: The core application file containing HTML, JavaScript (UI & Worker), and Python (Model).
 - `styles.css`: Manually generated TailwindCSS subset plus override styles for the slider.
 - `loading.gif`: A loading indicator displayed during initialization.
+- `custom-pyodide/`: Tailored Pyodide distribution files (see below.)
 - `favicon.ico`: Tab icon.
 - `README.md`: This documentation.
 - `AGENTS.md`: Instructions for AI agents and developers.
