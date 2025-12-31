@@ -371,7 +371,8 @@ def run_forecast(cutoff_date_str):
                     type: 'scatter',
                     mode: 'lines',
                     name: 'Actual',
-                    line: { color: '#1f2937', width: 2, dash: 'dot' }
+                    line: { color: '#1f2937', width: 2, dash: 'dot' },
+                    hovertemplate: '%{y:.2f}'
                 },
                 // Forecast
                 {
@@ -380,7 +381,8 @@ def run_forecast(cutoff_date_str):
                     type: 'scatter',
                     mode: 'lines',
                     name: 'Forecast',
-                    line: { color: '#2563eb', width: 3 }
+                    line: { color: '#2563eb', width: 3 },
+                    hovertemplate: '%{y:.2f}'
                 },
                 // History
                 {
@@ -389,7 +391,8 @@ def run_forecast(cutoff_date_str):
                     type: 'scatter',
                     mode: 'lines',
                     name: 'History',
-                    line: { color: '#1f2937', width: 2 }
+                    line: { color: '#1f2937', width: 2 },
+                    hovertemplate: '%{y:.2f}'
                 },
             ];
 
