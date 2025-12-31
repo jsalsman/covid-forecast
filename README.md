@@ -44,7 +44,7 @@ The entire application logic is contained within `index.html`.
 
 - `index.html`: The core application file containing HTML, JavaScript (UI & Worker), and Python (Model).
 - `styles.css`: Manually generated TailwindCSS subset plus override styles for the slider.
-- `loading.gif`: A loading indicator displayed during initialization.
+- `loading.gif`: A spinning indicator displayed during initialization.
 - `custom-pyodide/`: Tailored Pyodide distribution files (see below.)
 - `favicon.ico`: Tab icon.
 - `README.md`: This documentation.
