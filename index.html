@@ -6,36 +6,10 @@
     <title>COVID Wastewater Forecast</title>
     <link href="styles.css" rel="stylesheet">
     <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-    <style>
-        /* Custom slider styles */
-        input[type=range] {
-            appearance: none;
-            -webkit-appearance: none;
-            width: 100%;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 16px;
-            width: 16px;
-            border-radius: 50%;
-            background: #3b82f6;
-            cursor: pointer;
-            margin-top: -6px;
-            box-shadow: 1px 1px 1px #000000, 0px 0px 1px #0d0d0d;
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 4px;
-            cursor: pointer;
-            background: #cbd5e1;
-            border-radius: 1.3px;
-        }
-    </style>
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-900">
     <div class="container mx-auto px-4 py-4">
-        <h1 class="text-3xl font-bold mb-2 text-center">National COVID Wastewater Forecast</h1>
+        <h1 class="text-3xl font-bold mb-2 text-center">U.S. National COVID Wastewater Forecast</h1>
         <p class="text-center mb-4 text-gray-600">
             Holt-Winters model (52-week seasonality) with 50% confidence intervals.
             Select a cut-off date to see the forecast vs actuals.
@@ -45,7 +19,7 @@
             <div id="loading-overlay" class="fixed inset-0 bg-white/75 flex flex-col items-center justify-center z-50">
                 <img src="loading.gif" alt="Loading..." class="w-16 h-16 mb-4">
                 <p id="loading-text" class="text-lg font-semibold text-gray-700 text-center">Initializing...</p>
-                <p class="text-sm text-gray-500">(This may take a minute or two.)</p>
+                <p class="text-sm text-gray-500">(This may take a minute.)</p>
             </div>
 
             <div id="chart" class="w-full h-[360px] mb-2"></div>
@@ -65,8 +39,8 @@
             </div>
         </div>
         <p class="text-center mb-4 mt-4 text-gray-600">
-            The code for this Pyodide-based app is <a href="https://github.com/jsalsman/covid-forecast"
-                class="text-blue-600 underline">on GitHub</a>.
+            The code for this <a href="https://pyodide.org/" class="text-blue-600 underline">Pyodide</a>-based app is
+            <a href="https://github.com/jsalsman/covid-forecast" class="text-blue-600 underline">on GitHub</a>.
         </p>
     </div>
 
@@ -172,31 +146,22 @@ def run_forecast(cutoff_date_str):
         train_df = df
 
     # Model
-    try:
-        model = ExponentialSmoothing(
-            train_df['National_WVAL'],
-            seasonal_periods=52,
-            trend='add',
-            seasonal='add',
-            damped_trend=True,
-            use_boxcox=True,
-            initialization_method="estimated"
-        )
-        model_fit = model.fit()
-    except Exception as e:
-        # Fallback
-        model = ExponentialSmoothing(
-            train_df['National_WVAL'],
-            seasonal_periods=52,
-            trend='add',
-            seasonal='add'
-        )
-        model_fit = model.fit()
+    model = ExponentialSmoothing(
+        train_df['National_WVAL'],
+        seasonal_periods=52,
+        trend='add',
+        seasonal='add',
+        damped_trend=True,
+        use_boxcox=True,  # moves adjustments into the multiplicative domain
+        initialization_method="estimated"
+    )
+    model_fit = model.fit(method="Powell")
 
+    # Forecast
     forecast_steps = 52
     forecast = model_fit.forecast(forecast_steps)
 
-    # Confidence Intervals via Simulation
+    # Confidence intervals from simulation
     n_simulations = 500
     simulations = np.zeros((forecast_steps, n_simulations))
 
@@ -219,7 +184,7 @@ def run_forecast(cutoff_date_str):
                 diff_upper = np.mean(np.abs(current_upper - prev_upper) / (np.abs(prev_upper) + 1e-9))
                 mean_diff = (diff_lower + diff_upper) / 2
 
-                if mean_diff < 0.05:
+                if mean_diff < 0.05:  # 5% is close enough
                     js.updateStatus(f"Converged at {i+1} simulations. Stopping.")
                     simulations = simulations[:, :i+1]
                     break

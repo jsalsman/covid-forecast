@@ -1,13 +1,13 @@
-# National COVID Wastewater Forecast
+# U.S. National COVID Wastewater Forecast
 
-This repository contains a purely client-side web application that forecasts National COVID-19 Wastewater Viral Activity Levels. It utilizes [Pyodide](https://pyodide.org/) to run a Python-based **Holt-Winters Exponential Smoothing** model directly in the user's browser via WebAssembly, removing the need for a dedicated backend server.
+This repository contains a purely client-side web application that forecasts National COVID-19 Wastewater Viral Activity Levels. It utilizes [Pyodide](https://pyodide.org/) to run a Python-based [Holt-Winters Exponential Smoothing](https://www.statsmodels.org/stable/generated/statsmodels.tsa.holtwinters.ExponentialSmoothing.html) model directly in the user's browser via WebAssembly, removing the need for a dedicated backend server.
 
 ## Overview
 
-The application fetches the latest wastewater data from the [CDC](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
+The application fetches the latest wastewater data from the [CDC](https://www.cdc.gov/nwss/rv/COVID19-national-data.html)'s [.csv file](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
 
 ### Key Features
-- **Client-Side Python:** Runs full data science stack (`pandas`, `scipy`, `statsmodels`) in the browser.
+- **Client-Side Python:** Runs full data science stack (`pandas`, `statsmodels`, and all their dependencies) in the browser.
 - **Interactive Visualization:** Uses [Plotly.js](https://plotly.com/javascript/) for interactive charts.
 - **Forecast Model:** Implements Holt-Winters Exponential Smoothing with 52-week seasonality and damped trend.
 - **Confidence Intervals:** Calculates 50% confidence intervals using Monte Carlo simulations.
@@ -21,19 +21,18 @@ The entire application logic is contained within `index.html`.
 1. **Initialization:**
    - The browser loads `index.html`.
    - A **Web Worker** is spawned to initialize the Pyodide environment without blocking the main UI thread.
-   - Python packages (`pandas`, `statsmodels`, `scipy`) are downloaded and installed dynamically.
+   - Python packages (the standard libraries, `pandas`, `statsmodels`, and all their dependencies) are downloaded and installed dynamically from the `custom-pyodide` files.
 
 2. **Data Processing:**
    - The Python script fetches the CSV data from the CDC URL.
    - Data is cleaned: duplicates are removed, the index is set to `Week_Ending_Date`, and missing values are handled.
-   - The frequency of the time series is inferred to satisfy `statsmodels` requirements.
 
 3. **Forecasting:**
    - When the user adjusts the date slider, a message is sent to the Web Worker.
    - The Python script splits the data based on the selected cut-off date.
    - An `ExponentialSmoothing` model is fitted to the training data.
    - A 52-week forecast is generated.
-   - 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval).
+   - Up to 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval).
    - The upper bound is clamped at 30 (high activity level) for visualization purposes.
 
 4. **Visualization:**
@@ -41,7 +40,21 @@ The entire application logic is contained within `index.html`.
    - Plotly renders the historical data, the forecast line, and the confidence interval bands.
    - A custom slider is aligned with the x-axis of the chart to allow intuitive date selection.
 
+## File Structure
+
+- `index.html`: The core application file containing HTML, JavaScript (UI & Worker), and Python (Model).
+- `styles.css`: Manually generated TailwindCSS subset plus override styles for the slider.
+- `loading.gif`: A spinning indicator displayed during initialization.
+- `custom-pyodide/`: Tailored Pyodide distribution files (see below.)
+- `favicon.ico`: Tab icon.
+- `README.md`: This documentation.
+- `AGENTS.md`: Instructions for AI agents and developers.
+
 ## Usage
+
+### Browser Compatibility
+
+This Pyodide web app equires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edge). It may take a minute to download the Pyodide runtime and Python packages.
 
 ### Running Locally
 
@@ -56,28 +69,16 @@ python3 -m http.server 8000
 
 Then navigate to `http://localhost:8000` in your web browser.
 
-### Browser Compatibility
+## Pre-built Custom Pyodide Distribution
 
-Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edge). The first load may take a few minutes to download the Pyodide runtime and Python packages.
+To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.tgz`) rather than downloading packages individually or using the CDN at all.
 
-## File Structure
-
-- `index.html`: The core application file containing HTML, CSS (Tailwind), JavaScript (UI & Worker), and Python (Model).
-- `loading.gif`: A loading indicator displayed during initialization.
-- `AGENTS.md`: Instructions for AI agents and developers.
-- `README.md`: This documentation.
-- `LICENSE`: MIT License.
-
-## Building a Custom Pyodide Distribution
-
-To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.zip`) rather than downloading packages individually.
-
-The custom distribution was built using the following commands:
+The custom distribution was built using the [following commands](https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution) and the [make_preload.py](make_preload.py) script:
 
 ```bash
 git clone --recursive https://github.com/pyodide/pyodide
+cp make_preload.py pyodide
 cd pyodide
-cp ../make_preload.py .
 ./run_docker
 make
 git clone https://github.com/pyodide/pyodide-recipes
@@ -85,7 +86,8 @@ pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/package
 # That takes a little over an hour on a 2-core GitHub Codespace; so use 4 cores
 python make_preload.py
 exit
-rm -rf ../custom-pyodide && cp -pr custom-pyodide ..
+rm -rf ../custom-pyodide
+cp -r custom-pyodide ..
 cd ..
 git add custom-pyodide
 git commit -m "Update custom pyodide build"
@@ -96,9 +98,9 @@ The `custom-pyodide` directory is then served alongside `index.html`.
 
 ## Ideas for the future
 
-### Building a Custom Pyodide Distribution with a Memory Snapshot
+### Custom Pyodide Distribution as a Memory Snapshot
 
-To further improve loading time, we could include a memory snapshot in the distribution containing `pandas` and `statsmodels`. It would be built thusly, per https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution :
+To further improve loading time, we could ship a memory snapshot in the distribution already containing `pandas` and `statsmodels` loaded. It would be built thusly:
 
 ```
 git clone --recursive https://github.com/pyodide/pyodide
@@ -142,7 +144,7 @@ Then serve the whole `dist` directory (minus the test files) at `/custom-pyodide
 const pyodide = await loadPyodide({ indexURL: "custom-pyodide/" });
 ```
 
-**HOWEVER, this is currently blocked by this issue:** https://github.com/pyodide/pyodide/issues/5195
+**HOWEVER, memory snapshots are currently blocked by this issue:** https://github.com/pyodide/pyodide/issues/5195
 
 ## License
 
