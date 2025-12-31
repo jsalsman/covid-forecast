@@ -139,30 +139,50 @@ def run_forecast(cutoff_date_str):
     if df is None:
         return {"error": "Data not loaded"}
 
+    # Slice training data
     if cutoff_date_str:
         cutoff_date = pd.to_datetime(cutoff_date_str)
         train_df = df[df.index <= cutoff_date]
     else:
         train_df = df
 
-    # Model
+    y = train_df["National_WVAL"].astype(float).copy()
+
+    # Enforce regular weekly spacing if possible (keeps Holt-Winters happier)
+    try:
+        y = y.asfreq("W-SAT")
+    except Exception:
+        pass
+
+    # Clean and enforce positivity for log transform
+    y = y.replace([np.inf, -np.inf], np.nan).dropna()
+    y = y.clip(lower=1e-6)
+
+    if len(y) < 104:
+        return {"error": f"Not enough weekly data for seasonal_periods=52 (need >=104 points); have {len(y)}."}
+
+    # Fit in log space (Pyodide statsmodels does not accept use_boxcox='log')
+    y_log = np.log(y)
+
     model = ExponentialSmoothing(
-        train_df["National_WVAL"],
+        y_log,
         seasonal_periods=52,
-        trend="mul",
-        seasonal="mul",
+        trend="add",
+        seasonal="add",
         damped_trend=False,
-        use_boxcox="log",
         initialization_method="estimated",
     )
     model_fit = model.fit(method="powell")
 
     forecast_steps = 52
-    forecast = model_fit.forecast(forecast_steps)
 
-    # Confidence Intervals via Simulation
+    # Point forecast (back-transform to original scale)
+    forecast_log = model_fit.forecast(forecast_steps)
+    forecast = np.exp(forecast_log)
+
+    # Confidence intervals via simulation (simulate in log space; exp back)
     n_simulations = 500
-    simulations = np.zeros((forecast_steps, n_simulations))
+    simulations = np.zeros((forecast_steps, n_simulations), dtype=float)
 
     prev_lower = None
     prev_upper = None
@@ -170,11 +190,13 @@ def run_forecast(cutoff_date_str):
     for i in range(n_simulations):
         if (i + 1) % 10 == 0:
             js.updateStatus(f"Ran {i+1} Monte Carlo simulations for confidence intervals...")
-        sim = model_fit.simulate(forecast_steps, anchor='end')
-        simulations[:, i] = sim.values
+
+        sim_log = model_fit.simulate(forecast_steps, anchor="end")
+        sim = np.exp(np.asarray(sim_log, dtype=float))
+        simulations[:, i] = sim
 
         if (i + 1) % 10 == 0:
-            current_sims = simulations[:, :i+1]
+            current_sims = simulations[:, : i + 1]
             current_lower = np.nanpercentile(current_sims, 25, axis=1)
             current_upper = np.nanpercentile(current_sims, 75, axis=1)
 
@@ -185,7 +207,7 @@ def run_forecast(cutoff_date_str):
 
                 if mean_diff < 0.05:
                     js.updateStatus(f"Converged at {i+1} simulations. Stopping.")
-                    simulations = simulations[:, :i+1]
+                    simulations = simulations[:, : i + 1]
                     break
 
             prev_lower = current_lower
@@ -194,24 +216,24 @@ def run_forecast(cutoff_date_str):
     lower_bound = np.nanpercentile(simulations, 25, axis=1)
     upper_bound = np.nanpercentile(simulations, 75, axis=1)
 
+    # Preserve your original cap behavior
     upper_bound = np.minimum(upper_bound, 30)
 
     forecast_data = []
-    last_date = train_df.index[-1]
+    last_date = y.index[-1]
 
     for i in range(forecast_steps):
-        next_date = last_date + pd.Timedelta(weeks=i+1)
-        forecast_data.append({
-            'date': next_date.strftime('%Y-%m-%d'),
-            'forecast': clean_val(forecast.iloc[i]),
-            'lower': clean_val(lower_bound[i]),
-            'upper': clean_val(upper_bound[i])
-        })
+        next_date = last_date + pd.Timedelta(weeks=i + 1)
+        forecast_data.append(
+            {
+                "date": next_date.strftime("%Y-%m-%d"),
+                "forecast": clean_val(float(forecast.iloc[i])),
+                "lower": clean_val(float(lower_bound[i])),
+                "upper": clean_val(float(upper_bound[i])),
+            }
+        )
 
-    return {
-        'forecast': forecast_data,
-        'cutoff_date': train_df.index[-1].strftime('%Y-%m-%d')
-    }
+    return {"forecast": forecast_data, "cutoff_date": y.index[-1].strftime("%Y-%m-%d")}
 \`;
 
             self.onmessage = async (event) => {
