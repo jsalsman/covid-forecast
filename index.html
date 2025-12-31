@@ -39,8 +39,8 @@
             </div>
         </div>
         <p class="text-center mb-4 mt-4 text-gray-600">
-            The code for this Pyodide-based app is <a href="https://github.com/jsalsman/covid-forecast"
-                class="text-blue-600 underline">on GitHub</a>.
+            The code for this <a href="https://pyodide.org/" class="text-blue-600 underline">Pyodide</a>-based app is
+            <a href="https://github.com/jsalsman/covid-forecast" class="text-blue-600 underline">on GitHub</a>.
         </p>
     </div>
 
@@ -157,10 +157,11 @@ def run_forecast(cutoff_date_str):
     )
     model_fit = model.fit(method="Powell")
 
+    # Forecast
     forecast_steps = 52
     forecast = model_fit.forecast(forecast_steps)
 
-    # Confidence Intervals via Simulation
+    # Confidence intervals from simulation
     n_simulations = 500
     simulations = np.zeros((forecast_steps, n_simulations))
 
@@ -183,7 +184,7 @@ def run_forecast(cutoff_date_str):
                 diff_upper = np.mean(np.abs(current_upper - prev_upper) / (np.abs(prev_upper) + 1e-9))
                 mean_diff = (diff_lower + diff_upper) / 2
 
-                if mean_diff < 0.05:
+                if mean_diff < 0.05:  # 5% is close enough
                     js.updateStatus(f"Converged at {i+1} simulations. Stopping.")
                     simulations = simulations[:, :i+1]
                     break
