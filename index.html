@@ -193,6 +193,11 @@ def run_forecast(cutoff_date_str):
 
         sim_log = model_fit.simulate(forecast_steps, anchor="end")
         sim = np.exp(np.asarray(sim_log, dtype=float))
+
+        # Guard against rare numeric blowups
+        sim = np.where(np.isfinite(sim), sim, np.nan)
+        sim = np.clip(sim, 0, 1e6)
+
         simulations[:, i] = sim
 
         if (i + 1) % 10 == 0:
