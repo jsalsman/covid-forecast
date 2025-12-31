@@ -172,7 +172,7 @@ def run_forecast(cutoff_date_str):
         damped_trend=False,
         initialization_method="estimated",
     )
-    model_fit = model.fit(method="powell")
+    model_fit = model.fit(method="Powell")
 
     forecast_steps = 52
 
