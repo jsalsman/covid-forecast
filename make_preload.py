@@ -30,11 +30,11 @@ for z in dist.glob("*.zip"):
         with zipfile.ZipFile(z) as zf:
             zf.extractall(stage)
 
-# Ensure shared libraries are in standard library search paths.
+# Ensure shared libraries are in standard library search paths
 for so in list(stage.glob("*.so")):
     shutil.move(so, sitepkgs / so.name)
 
-# Create one unified archive containing everything staged above.
+# Create one unified archive containing everything staged above
 with tarfile.open(out / "packages.tgz", "w:gz") as tf:
     for p in sorted(stage.glob("*")):
         tf.add(p, arcname=p.relative_to(stage))
