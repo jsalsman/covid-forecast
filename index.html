@@ -146,16 +146,26 @@ def run_forecast(cutoff_date_str):
         train_df = df
 
     # Model
-    model = ExponentialSmoothing(
-        train_df['National_WVAL'],
-        seasonal_periods=52,
-        trend='add',
-        seasonal='add',
-        damped_trend=False,
-        use_boxcox=True,  # moves fit into the log domain, effectively using multiplicative trend and seasonal adjustment
-        initialization_method="estimated"
-    )
-    model_fit = model.fit()
+    try:
+        model = ExponentialSmoothing(
+            train_df['National_WVAL'],
+            seasonal_periods=52,
+            trend='add',
+            seasonal='add',
+            damped_trend=True,
+            use_boxcox=True,
+            initialization_method="estimated"
+        )
+        model_fit = model.fit()
+    except Exception as e:
+        # Fallback
+        model = ExponentialSmoothing(
+            train_df['National_WVAL'],
+            seasonal_periods=52,
+            trend='add',
+            seasonal='add'
+        )
+        model_fit = model.fit()
 
     forecast_steps = 52
     forecast = model_fit.forecast(forecast_steps)
