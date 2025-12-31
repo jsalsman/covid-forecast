@@ -372,7 +372,7 @@ def run_forecast(cutoff_date_str):
                     mode: 'lines',
                     name: 'Actual',
                     line: { color: '#1f2937', width: 2, dash: 'dot' },
-                    hovertemplate: '%{y:.2f}'
+                    hovertemplate: '%{y:.1f}'
                 },
                 // Forecast
                 {
@@ -382,7 +382,7 @@ def run_forecast(cutoff_date_str):
                     mode: 'lines',
                     name: 'Forecast',
                     line: { color: '#2563eb', width: 3 },
-                    hovertemplate: '%{y:.2f}'
+                    hovertemplate: '%{y:.1f}'
                 },
                 // History
                 {
@@ -392,7 +392,7 @@ def run_forecast(cutoff_date_str):
                     mode: 'lines',
                     name: 'History',
                     line: { color: '#1f2937', width: 2 },
-                    hovertemplate: '%{y:.2f}'
+                    hovertemplate: '%{y:.1f}'
                 },
             ];
 
