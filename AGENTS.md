@@ -1,6 +1,6 @@
 # AI Agent & Developer Guidelines
 
-This document outlines the architecture, coding conventions, and operational details for maintaining and supporting the `index.html` application.
+This document outlines the architecture, coding conventions, and operational details for maintaining and supporting the single-page Pyodide `index.html` application.
 
 ## Development Workflow
 
