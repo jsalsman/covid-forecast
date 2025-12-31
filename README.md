@@ -1,4 +1,4 @@
-# National COVID Wastewater Forecast
+# U.S. National COVID Wastewater Forecast
 
 This repository contains a purely client-side web application that forecasts National COVID-19 Wastewater Viral Activity Levels. It utilizes [Pyodide](https://pyodide.org/) to run a Python-based [Holt-Winters Exponential Smoothing](https://www.statsmodels.org/stable/generated/statsmodels.tsa.holtwinters.ExponentialSmoothing.html) model directly in the user's browser via WebAssembly, removing the need for a dedicated backend server.
 
