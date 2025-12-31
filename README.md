@@ -40,7 +40,21 @@ The entire application logic is contained within `index.html`.
    - Plotly renders the historical data, the forecast line, and the confidence interval bands.
    - A custom slider is aligned with the x-axis of the chart to allow intuitive date selection.
 
+## File Structure
+
+- `index.html`: The core application file containing HTML, JavaScript (UI & Worker), and Python (Model).
+- `styles.css`: Manually generated TailwindCSS subset plus override styles for the slider.
+- `loading.gif`: A loading indicator displayed during initialization.
+- `custom-pyodide/`: Tailored Pyodide distribution files (see below.)
+- `favicon.ico`: Tab icon.
+- `README.md`: This documentation.
+- `AGENTS.md`: Instructions for AI agents and developers.
+
 ## Usage
+
+### Browser Compatibility
+
+This Pyodide web app equires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edge). It may take a minute to download the Pyodide runtime and Python packages.
 
 ### Running Locally
 
@@ -55,24 +69,9 @@ python3 -m http.server 8000
 
 Then navigate to `http://localhost:8000` in your web browser.
 
-### Browser Compatibility
+## Pre-built Custom Pyodide Distribution
 
-Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edge). The first load may take a few minutes to download the Pyodide runtime and Python packages.
-
-## File Structure
-
-- `index.html`: The core application file containing HTML, JavaScript (UI & Worker), and Python (Model).
-- `styles.css`: Manually generated TailwindCSS subset plus override styles for the slider.
-- `loading.gif`: A loading indicator displayed during initialization.
-- `custom-pyodide/`: Tailored Pyodide distribution files (see below.)
-- `favicon.ico`: Tab icon.
-- `README.md`: This documentation.
-- `AGENTS.md`: Instructions for AI agents and developers.
-- `LICENSE`: MIT License.
-
-## Building a Custom Pyodide Distribution
-
-To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.tgz`) rather than downloading packages individually.
+To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.tgz`) rather than downloading packages individually or using the CDN at all.
 
 The custom distribution was built using the [following commands](https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution) and the [make_preload.py](make_preload.py) script:
 
@@ -145,7 +144,7 @@ Then serve the whole `dist` directory (minus the test files) at `/custom-pyodide
 const pyodide = await loadPyodide({ indexURL: "custom-pyodide/" });
 ```
 
-**HOWEVER, this is currently blocked by this issue:** https://github.com/pyodide/pyodide/issues/5195
+**HOWEVER, memory snapshots are currently blocked by this issue:** https://github.com/pyodide/pyodide/issues/5195
 
 ## License
 
