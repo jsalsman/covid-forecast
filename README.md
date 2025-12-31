@@ -74,7 +74,7 @@ Requires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edg
 
 To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.tgz`) rather than downloading packages individually.
 
-The custom distribution was built using the following commands and the [make_preload.py](make_preload.py) script:
+The custom distribution was built using the [following commands](https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution) and the [make_preload.py](make_preload.py) script:
 
 ```bash
 git clone --recursive https://github.com/pyodide/pyodide
@@ -99,9 +99,9 @@ The `custom-pyodide` directory is then served alongside `index.html`.
 
 ## Ideas for the future
 
-### Building a Custom Pyodide Distribution with a Memory Snapshot
+### Custom Pyodide Distribution as a Memory Snapshot
 
-To further improve loading time, we could include a memory snapshot in the distribution containing `pandas` and `statsmodels`. It would be built thusly, per https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution :
+To further improve loading time, we could ship a memory snapshot in the distribution already containing `pandas` and `statsmodels` loaded. It would be built thusly:
 
 ```
 git clone --recursive https://github.com/pyodide/pyodide
