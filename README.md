@@ -1,10 +1,10 @@
 # U.S. National COVID Wastewater Forecast
 
-This repository contains a purely client-side web application that forecasts National COVID-19 Wastewater Viral Activity Levels. It utilizes [Pyodide](https://pyodide.org/) to run a Python-based [Holt-Winters Exponential Smoothing](https://www.statsmodels.org/stable/generated/statsmodels.tsa.holtwinters.ExponentialSmoothing.html) model directly in the user's browser via WebAssembly, removing the need for a dedicated backend server.
+This repository contains a purely client-side web application that forecasts National COVID-19 and Influenza A Wastewater Viral Activity Levels. It utilizes [Pyodide](https://pyodide.org/) to run a Python-based [Holt-Winters Exponential Smoothing](https://www.statsmodels.org/stable/generated/statsmodels.tsa.holtwinters.ExponentialSmoothing.html) model directly in the user's browser via WebAssembly, removing the need for a dedicated backend server.
 
 ## Overview
 
-The application fetches the latest wastewater data from the [CDC](https://www.cdc.gov/nwss/rv/COVID19-national-data.html)'s [.csv file](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
+The application fetches the latest wastewater data from the CDC (for both [COVID-19](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv) and [Influenza A](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/flua/nwssfluaregionalactivitylevelDL.csv)), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
 
 ### Key Features
 - **Client-Side Python:** Runs full data science stack (`pandas`, `statsmodels`, and all their dependencies) in the browser.
@@ -24,7 +24,7 @@ The entire application logic is contained within `index.html`.
    - Python packages (the standard libraries, `pandas`, `statsmodels`, and all their dependencies) are downloaded and installed dynamically from the `custom-pyodide` files.
 
 2. **Data Processing:**
-   - The Python script fetches the CSV data from the CDC URL.
+   - The Python script fetches the CSV data from the CDC URL (depending on the selected virus: COVID or Influenza).
    - Data is cleaned: duplicates are removed, the index is set to `Week_Ending_Date`, and missing values are handled.
 
 3. **Forecasting:**

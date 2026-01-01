@@ -9,7 +9,19 @@
 </head>
 <body class="bg-gray-100 min-h-screen font-sans text-gray-900">
     <div class="container mx-auto px-4 py-4">
-        <h1 class="text-3xl font-bold mb-2 text-center">U.S. National COVID Wastewater Forecast</h1>
+        <h1 class="text-3xl font-bold mb-2 text-center" id="main-title">U.S. National COVID Wastewater Forecast</h1>
+
+        <div class="flex justify-center space-x-8 mb-4">
+            <div class="flex items-center">
+                <input id="radio-covid" type="radio" name="dataset" value="covid" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500" checked>
+                <label for="radio-covid" class="ml-2 text-sm font-medium text-gray-900">COVID</label>
+            </div>
+            <div class="flex items-center">
+                <input id="radio-flu" type="radio" name="dataset" value="flu" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500">
+                <label for="radio-flu" class="ml-2 text-sm font-medium text-gray-900">Influenza</label>
+            </div>
+        </div>
+
         <p class="text-center mb-4 text-gray-600">
             Holt-Winters model (52-week seasonality) with 50% confidence intervals.
             Select a cut-off date to see the forecast vs actuals.
@@ -83,11 +95,31 @@ from pyodide.http import open_url
 import json
 import js
 
-df = None
+# Store dataframes for caching
+dfs = {
+    'covid': None,
+    'flu': None
+}
 
-def get_data():
-    global df
-    url = "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv"
+current_df = None
+
+DATA_URLS = {
+    'covid': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv",
+    'flu': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/flua/nwssfluaregionalactivitylevelDL.csv"
+}
+
+def get_data(dataset_type='covid'):
+    global current_df, dfs
+
+    if dataset_type not in DATA_URLS:
+        return {"error": "Invalid dataset type"}
+
+    # Return cached if available
+    if dfs[dataset_type] is not None:
+        current_df = dfs[dataset_type]
+        return prepare_js_data(current_df)
+
+    url = DATA_URLS[dataset_type]
     try:
         # Load data
         df_raw = pd.read_csv(open_url(url))
@@ -108,25 +140,30 @@ def get_data():
         except:
             pass
 
-        df = cleaned
+        # Cache it
+        dfs[dataset_type] = cleaned
+        current_df = cleaned
 
-        # Prepare initial data for JS
-        data = []
-        for date, row in df.iterrows():
-            val = row['National_WVAL']
-            # Handle NaN/Inf
-            if pd.isna(val) or np.isinf(val):
-                val = None
-            else:
-                val = float(val)
+        return prepare_js_data(current_df)
 
-            data.append({
-                'date': date.strftime('%Y-%m-%d'),
-                'value': val
-            })
-        return data
     except Exception as e:
         return {"error": str(e)}
+
+def prepare_js_data(df):
+    data = []
+    for date, row in df.iterrows():
+        val = row['National_WVAL']
+        # Handle NaN/Inf
+        if pd.isna(val) or np.isinf(val):
+            val = None
+        else:
+            val = float(val)
+
+        data.append({
+            'date': date.strftime('%Y-%m-%d'),
+            'value': val
+        })
+    return data
 
 def clean_val(v):
     if v is None: return None
@@ -135,15 +172,15 @@ def clean_val(v):
     return float(v)
 
 def run_forecast(cutoff_date_str):
-    global df
-    if df is None:
+    global current_df
+    if current_df is None:
         return {"error": "Data not loaded"}
 
     if cutoff_date_str:
         cutoff_date = pd.to_datetime(cutoff_date_str)
-        train_df = df[df.index <= cutoff_date]
+        train_df = current_df[current_df.index <= cutoff_date]
     else:
-        train_df = df
+        train_df = current_df
 
     # Model
     model = ExponentialSmoothing(
@@ -223,10 +260,16 @@ def run_forecast(cutoff_date_str):
                     // Initialize Python environment
                     await self.pyodide.runPythonAsync(pythonScript);
 
-                    // Fetch data
-                    const result = await self.pyodide.runPythonAsync("get_data()");
+                    // Fetch default data (covid)
+                    const result = await self.pyodide.runPythonAsync("get_data('covid')");
                     const data = result.toJs({dict_converter: Object.fromEntries});
                     self.postMessage({ type: 'init_result', data: data });
+                } else if (type === 'load_data') {
+                    const dataset = payload;
+                    self.pyodide.globals.set("target_dataset", dataset);
+                    const result = await self.pyodide.runPythonAsync("get_data(target_dataset)");
+                    const data = result.toJs({dict_converter: Object.fromEntries});
+                    self.postMessage({ type: 'init_result', data: data }); // reuse init_result to redraw chart
                 } else if (type === 'forecast') {
                     const date = payload;
                     self.pyodide.globals.set("target_date", date);
@@ -250,6 +293,34 @@ def run_forecast(cutoff_date_str):
         const slider = document.getElementById('dateSlider');
         const cutoffLabel = document.getElementById('cutoffDateLabel');
         const chartDiv = document.getElementById('chart');
+        const mainTitle = document.getElementById('main-title');
+
+        // Radio Buttons
+        const radioCovid = document.getElementById('radio-covid');
+        const radioFlu = document.getElementById('radio-flu');
+
+        function setDataset(dataset) {
+            loadingOverlay.classList.remove('hidden');
+            loadingOverlay.classList.add('flex');
+            loadingText.innerText = `Loading ${dataset === 'covid' ? 'COVID-19' : 'Influenza A'} data...`;
+
+            // Update Title
+            if (dataset === 'covid') {
+                mainTitle.innerText = "U.S. National COVID Wastewater Forecast";
+            } else {
+                mainTitle.innerText = "U.S. National Influenza Wastewater Forecast";
+            }
+
+            worker.postMessage({ type: 'load_data', payload: dataset });
+        }
+
+        radioCovid.addEventListener('change', () => {
+            if (radioCovid.checked) setDataset('covid');
+        });
+
+        radioFlu.addEventListener('change', () => {
+            if (radioFlu.checked) setDataset('flu');
+        });
 
         worker.onmessage = (event) => {
             const { type, data, message } = event.data;
