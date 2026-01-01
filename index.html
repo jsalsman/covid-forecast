@@ -14,7 +14,7 @@
         <div class="flex justify-center space-x-8 mb-2">
             <div class="flex items-center">
                 <input id="radio-covid" type="radio" name="dataset" value="covid" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500" checked>
-                <label for="radio-covid" class="ml-2 text-sm font-medium text-gray-900">COVID-19 (with 50% confidence intervals)</label>
+                <label for="radio-covid" class="ml-2 text-sm font-medium text-gray-900">COVID-19 including 50% confidence intervals</label>
             </div>
             <div class="flex items-center">
                 <input id="radio-flu" type="radio" name="dataset" value="flu" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500">
@@ -23,7 +23,7 @@
         </div>
 
         <p class="text-center mb-4 text-gray-600">
-            Holt-Winters model exponential smoothing (52-week seasonality.)
+            Holt-Winters exponential smoothing model with 52-week seasonality.
             Select a cut-off date to see the forecast vs actuals.
         </p>
 
@@ -46,7 +46,7 @@
                         <span id="cutoffDateLabel" class="text-blue-600"></span></label>
                 </div>
                 <p class="text-center mt-2 text-sm text-gray-500">Drag the slider to change the model training cut-off date. 
-                    The upper 50% confidence interval region is bounded at an
+                    The COVID upper 50% confidence interval region is bounded at an
                     <a href="https://www.cdc.gov/nwss/data-methods.html" class="text-blue-600 underline">activity level</a> of 30.</p>
             </div>
         </div>
