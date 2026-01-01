@@ -46,7 +46,9 @@ Then navigate to `http://localhost:8000` in your web browser.
 The Python code is stored as a template string (`workerCode`) within the JavaScript.
 *   **Context**: Code runs inside the Pyodide environment in a Web Worker.
 *   **Packages**: Only packages included in the `custom-pyodide/packages.tgz` can be used.
-*   **Data Fetching**: Data is fetched directly from the CDC URL (`https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv`).
+*   **Data Fetching**: Data is fetched directly from the CDC URLs:
+    *   COVID-19: `https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv`
+    *   Influenza A: `https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/flua/nwssfluaregionalactivitylevelDL.csv`
 *   **Data Processing**:
     *   **Indices**: Input data must have a unique datetime index with an inferred frequency; duplicate dates must be filtered out.
     *   **Sanitization**: `NaN` and `Infinity` values in Python **must** be converted to `None` before returning to JS, as browsers do not accept `NaN` in JSON.
