@@ -75,8 +75,9 @@
 
                 self.updateStatus("Unpacking packages...");
                 const resp = await fetch("${baseUrl}custom-pyodide/packages.tgz");
-                const buf = await resp.arrayBuffer();
+                let buf = await resp.arrayBuffer();
                 await self.pyodide.unpackArchive(buf, "tgz", { extractDir: "/" });
+                buf = null;
 
                 self.updateStatus("Importing pandas...");
                 await self.pyodide.runPythonAsync("import pandas as pd");
@@ -305,6 +306,9 @@ def run_forecast(cutoff_date_str):
         // Radio Buttons
         const radioCovid = document.getElementById('radio-covid');
         const radioFlu = document.getElementById('radio-flu');
+
+        // Force reset to COVID on load (fixes tab restore issue)
+        radioCovid.checked = true;
 
         function setDataset(dataset) {
             loadingOverlay.classList.remove('hidden');
