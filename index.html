@@ -14,7 +14,7 @@
         <div class="flex justify-center space-x-8 mb-2">
             <div class="flex items-center">
                 <input id="radio-covid" type="radio" name="dataset" value="covid" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500" checked>
-                <label for="radio-covid" class="ml-2 text-sm font-medium text-gray-900">COVID-19</label>
+                <label for="radio-covid" class="ml-2 text-sm font-medium text-gray-900">COVID-19 (with 50% confidence intervals)</label>
             </div>
             <div class="flex items-center">
                 <input id="radio-flu" type="radio" name="dataset" value="flu" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500">
@@ -23,7 +23,7 @@
         </div>
 
         <p class="text-center mb-4 text-gray-600">
-            Holt-Winters model (52-week seasonality) with 50% confidence intervals (COVID-19 only).
+            Holt-Winters model exponential smoothing (52-week seasonality.)
             Select a cut-off date to see the forecast vs actuals.
         </p>
 
