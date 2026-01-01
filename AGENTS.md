@@ -54,7 +54,7 @@ The Python code is stored as a template string (`workerCode`) within the JavaScr
     *   **Sanitization**: `NaN` and `Infinity` values in Python **must** be converted to `None` before returning to JS, as browsers do not accept `NaN` in JSON.
 *   **Forecasting Model**:
     *   **Exponential Smoothing**: The model requires at least 104 data points (two full seasonal cycles of 52 weeks) to initialize successfully using the heuristic method.
-    *   **Simulation**: When calculating confidence intervals from simulations, `np.nanpercentile` must be used to ignore `NaN` values.
+    *   **Simulation**: When calculating confidence intervals from simulations, `np.nanpercentile` must be used to ignore `NaN` values. Note that simulations are only run for COVID-19 data; for Influenza, confidence intervals are skipped.
     *   **Clamping**: The forecast upper 50% confidence interval (75th percentile) is explicitly clamped at a maximum value of 30 to prevent y-axis distortion.
 
 ### 2. Frontend & Visualization

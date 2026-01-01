@@ -10,7 +10,7 @@ The application fetches the latest wastewater data from the CDC (for both [COVID
 - **Client-Side Python:** Runs full data science stack (`pandas`, `statsmodels`, and all their dependencies) in the browser.
 - **Interactive Visualization:** Uses [Plotly.js](https://plotly.com/javascript/) for interactive charts.
 - **Forecast Model:** Implements Holt-Winters Exponential Smoothing with 52-week seasonality and damped trend.
-- **Confidence Intervals:** Calculates 50% confidence intervals using Monte Carlo simulations.
+- **Confidence Intervals:** Calculates 50% confidence intervals using Monte Carlo simulations (COVID-19 only).
 - **Responsive UI:** Built with [Tailwind CSS](https://tailwindcss.com/) for a clean, mobile-friendly interface.
 - **Zero-Backend:** Hosted entirely as a static HTML file.
 
@@ -32,7 +32,7 @@ The entire application logic is contained within `index.html`.
    - The Python script splits the data based on the selected cut-off date.
    - An `ExponentialSmoothing` model is fitted to the training data.
    - A 52-week forecast is generated.
-   - Up to 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval).
+   - Up to 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval, for COVID-19 only).
    - The upper bound is clamped at 30 (high activity level) for visualization purposes.
 
 4. **Visualization:**

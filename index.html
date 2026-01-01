@@ -23,7 +23,7 @@
         </div>
 
         <p class="text-center mb-4 text-gray-600">
-            Holt-Winters model (52-week seasonality) with 50% confidence intervals.
+            Holt-Winters model (52-week seasonality) with 50% confidence intervals (COVID-19 only).
             Select a cut-off date to see the forecast vs actuals.
         </p>
 
@@ -102,6 +102,7 @@ dfs = {
 }
 
 current_df = None
+current_dataset_type = 'covid'
 
 DATA_URLS = {
     'covid': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv",
@@ -109,7 +110,9 @@ DATA_URLS = {
 }
 
 def get_data(dataset_type='covid'):
-    global current_df, dfs
+    global current_df, dfs, current_dataset_type
+
+    current_dataset_type = dataset_type
 
     if dataset_type not in DATA_URLS:
         return {"error": "Invalid dataset type"}
@@ -172,7 +175,7 @@ def clean_val(v):
     return float(v)
 
 def run_forecast(cutoff_date_str):
-    global current_df
+    global current_df, current_dataset_type
     if current_df is None:
         return {"error": "Data not loaded"}
 
@@ -198,41 +201,45 @@ def run_forecast(cutoff_date_str):
     forecast_steps = 52
     forecast = model_fit.forecast(forecast_steps)
 
-    # Confidence intervals from simulation
-    n_simulations = 500
-    simulations = np.zeros((forecast_steps, n_simulations))
+    lower_bound = np.full(forecast_steps, np.nan)
+    upper_bound = np.full(forecast_steps, np.nan)
 
-    prev_lower = None
-    prev_upper = None
+    # Confidence intervals from simulation (COVID only)
+    if current_dataset_type == 'covid':
+        n_simulations = 500
+        simulations = np.zeros((forecast_steps, n_simulations))
 
-    for i in range(n_simulations):
-        if (i + 1) % 10 == 0:
-            js.updateStatus(f"Ran {i+1} Monte Carlo simulations for confidence intervals...")
-        sim = model_fit.simulate(forecast_steps, anchor='end')
-        simulations[:, i] = sim.values
+        prev_lower = None
+        prev_upper = None
 
-        if (i + 1) % 10 == 0:
-            current_sims = simulations[:, :i+1]
-            current_lower = np.nanpercentile(current_sims, 25, axis=1)
-            current_upper = np.nanpercentile(current_sims, 75, axis=1)
+        for i in range(n_simulations):
+            if (i + 1) % 10 == 0:
+                js.updateStatus(f"Ran {i+1} Monte Carlo simulations for confidence intervals...")
+            sim = model_fit.simulate(forecast_steps, anchor='end')
+            simulations[:, i] = sim.values
 
-            if prev_lower is not None and prev_upper is not None:
-                diff_lower = np.mean(np.abs(current_lower - prev_lower) / (np.abs(prev_lower) + 1e-9))
-                diff_upper = np.mean(np.abs(current_upper - prev_upper) / (np.abs(prev_upper) + 1e-9))
-                mean_diff = (diff_lower + diff_upper) / 2
+            if (i + 1) % 10 == 0:
+                current_sims = simulations[:, :i+1]
+                current_lower = np.nanpercentile(current_sims, 25, axis=1)
+                current_upper = np.nanpercentile(current_sims, 75, axis=1)
 
-                if mean_diff < 0.05:  # 5% is close enough
-                    js.updateStatus(f"Converged at {i+1} simulations. Stopping.")
-                    simulations = simulations[:, :i+1]
-                    break
+                if prev_lower is not None and prev_upper is not None:
+                    diff_lower = np.mean(np.abs(current_lower - prev_lower) / (np.abs(prev_lower) + 1e-9))
+                    diff_upper = np.mean(np.abs(current_upper - prev_upper) / (np.abs(prev_upper) + 1e-9))
+                    mean_diff = (diff_lower + diff_upper) / 2
 
-            prev_lower = current_lower
-            prev_upper = current_upper
+                    if mean_diff < 0.05:  # 5% is close enough
+                        js.updateStatus(f"Converged at {i+1} simulations. Stopping.")
+                        simulations = simulations[:, :i+1]
+                        break
 
-    lower_bound = np.nanpercentile(simulations, 25, axis=1)
-    upper_bound = np.nanpercentile(simulations, 75, axis=1)
+                prev_lower = current_lower
+                prev_upper = current_upper
 
-    upper_bound = np.minimum(upper_bound, 30)
+        lower_bound = np.nanpercentile(simulations, 25, axis=1)
+        upper_bound = np.nanpercentile(simulations, 75, axis=1)
+
+        upper_bound = np.minimum(upper_bound, 30)
 
     forecast_data = []
     last_date = train_df.index[-1]
