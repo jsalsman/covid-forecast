@@ -136,7 +136,7 @@ def get_data(dataset_type='covid'):
         df_raw_all = df_raw_all.rename(columns={'Week_End': 'Week_Ending_Date'})
         df_raw_all['Week_Ending_Date'] = pd.to_datetime(df_raw_all['Week_Ending_Date'])
         df_raw_all['National_WVAL'] = pd.to_numeric(df_raw_all['National_WVAL'], errors='coerce')
-        
+
         for dtype, pathogen in PATHOGENS.items():
             df_raw = df_raw_all[df_raw_all['Pathogen_Target'] == pathogen].copy()
             df_raw = df_raw.sort_values('Week_Ending_Date')
@@ -148,7 +148,7 @@ def get_data(dataset_type='covid'):
             except:
                 pass
             dfs[dtype] = cleaned
-            
+
         current_df = dfs[dataset_type]
 
         return prepare_js_data(current_df)
@@ -188,6 +188,15 @@ def run_forecast(cutoff_date_str):
         train_df = current_df[current_df.index <= cutoff_date]
     else:
         train_df = current_df
+
+    # Model requires at least 104 data points for seasonal adjustment heuristic
+    if len(train_df) < 104:
+        # Gracefully handle not enough data for forecast by returning an empty forecast object
+        # that the frontend can safely render (meaning the chart won't have a forecast)
+        return {
+            'forecast': [],
+            'cutoff_date': train_df.index[-1].strftime('%Y-%m-%d') if len(train_df) > 0 else cutoff_date_str
+        }
 
     # Model
     model = ExponentialSmoothing(

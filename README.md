@@ -4,7 +4,7 @@ This repository contains a purely client-side web application that forecasts Nat
 
 ## Overview
 
-The application fetches the latest wastewater data from the CDC (for both [COVID-19](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv) and [Influenza A](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/flua/nwssfluaregionalactivitylevelDL.csv)), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
+The application fetches the latest wastewater data from the CDC (for both [COVID-19 and Influenza A](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json)), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
 
 ### Key Features
 - **Client-Side Python:** Runs full data science stack (`pandas`, `statsmodels`, and all their dependencies) in the browser.
@@ -24,8 +24,8 @@ The entire application logic is contained within `index.html`.
    - Python packages (the standard libraries, `pandas`, `statsmodels`, and all their dependencies) are downloaded and installed dynamically from the `custom-pyodide` files.
 
 2. **Data Processing:**
-   - The Python script fetches the CSV data from the CDC URL (depending on the selected virus: COVID or Influenza).
-   - Data is cleaned: duplicates are removed, the index is set to `Week_Ending_Date`, and missing values are handled.
+   - The Python script fetches the JSON data from the CDC URL.
+   - Data is cleaned: duplicates are removed, the index is set to `Week_Ending_Date` (from `Week_End`), and missing values are handled.
 
 3. **Forecasting:**
    - When the user adjusts the date slider, a message is sent to the Web Worker.
