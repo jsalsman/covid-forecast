@@ -46,14 +46,13 @@ Then navigate to `http://localhost:8000` in your web browser.
 The Python code is stored as a template string (`workerCode`) within the JavaScript.
 *   **Context**: Code runs inside the Pyodide environment in a Web Worker.
 *   **Packages**: Only packages included in the `custom-pyodide/packages.tgz` can be used.
-*   **Data Fetching**: Data is fetched directly from the CDC URLs:
-    *   COVID-19: `https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv`
-    *   Influenza A: `https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/flua/nwssfluaregionalactivitylevelDL.csv`
+*   **Data Fetching**: Data is fetched directly from the CDC JSON URL:
+    *   `https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json` (Combined COVID-19 and Influenza A dataset)
 *   **Data Processing**:
     *   **Indices**: Input data must have a unique datetime index with an inferred frequency; duplicate dates must be filtered out.
     *   **Sanitization**: `NaN` and `Infinity` values in Python **must** be converted to `None` before returning to JS, as browsers do not accept `NaN` in JSON.
 *   **Forecasting Model**:
-    *   **Exponential Smoothing**: The model requires at least 104 data points (two full seasonal cycles of 52 weeks) to initialize successfully using the heuristic method.
+    *   **Exponential Smoothing**: The model requires at least 104 data points (two full seasonal cycles of 52 weeks) to initialize successfully using the heuristic method. If the data is less than 104 points, return an empty forecast gracefully to prevent Python exceptions and UI crashing.
     *   **Simulation**: When calculating confidence intervals from simulations, `np.nanpercentile` must be used to ignore `NaN` values. Note that simulations are only run for COVID-19 data; for Influenza, confidence intervals are skipped.
     *   **Clamping**: The forecast upper 50% confidence interval (75th percentile) is explicitly clamped at a maximum value of 30 to prevent y-axis distortion.
 

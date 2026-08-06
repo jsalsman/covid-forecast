@@ -106,8 +106,13 @@ current_df = None
 current_dataset_type = 'covid'
 
 DATA_URLS = {
-    'covid': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/sc2/nwsssc2regionalactivitylevelDL.csv",
-    'flu': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/flua/nwssfluaregionalactivitylevelDL.csv"
+    'covid': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json",
+    'flu': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json"
+}
+
+PATHOGENS = {
+    'covid': 'SARS-CoV-2',
+    'flu': 'Influenza A virus'
 }
 
 def get_data(dataset_type='covid'):
@@ -126,27 +131,25 @@ def get_data(dataset_type='covid'):
     url = DATA_URLS[dataset_type]
     try:
         # Load data
-        df_raw = pd.read_csv(open_url(url))
+        data_json = json.loads(open_url(url).read())
+        df_raw_all = pd.DataFrame(data_json)
+        df_raw_all = df_raw_all.rename(columns={'Week_End': 'Week_Ending_Date'})
+        df_raw_all['Week_Ending_Date'] = pd.to_datetime(df_raw_all['Week_Ending_Date'])
+        df_raw_all['National_WVAL'] = pd.to_numeric(df_raw_all['National_WVAL'], errors='coerce')
 
-        df_raw['Week_Ending_Date'] = pd.to_datetime(df_raw['Week_Ending_Date'])
-        df_raw = df_raw.sort_values('Week_Ending_Date')
+        for dtype, pathogen in PATHOGENS.items():
+            df_raw = df_raw_all[df_raw_all['Pathogen_Target'] == pathogen].copy()
+            df_raw = df_raw.sort_values('Week_Ending_Date')
+            cleaned = df_raw[['Week_Ending_Date', 'National_WVAL']].dropna()
+            cleaned = cleaned.drop_duplicates(subset=['Week_Ending_Date'])
+            cleaned = cleaned.set_index('Week_Ending_Date')
+            try:
+                cleaned.index.freq = pd.infer_freq(cleaned.index)
+            except:
+                pass
+            dfs[dtype] = cleaned
 
-        # We only care about National_WVAL and Week_Ending_Date
-        cleaned = df_raw[['Week_Ending_Date', 'National_WVAL']].dropna()
-
-        # Drop duplicates to ensure unique index
-        cleaned = cleaned.drop_duplicates(subset=['Week_Ending_Date'])
-
-        cleaned = cleaned.set_index('Week_Ending_Date')
-
-        try:
-            cleaned.index.freq = pd.infer_freq(cleaned.index)
-        except:
-            pass
-
-        # Cache it
-        dfs[dataset_type] = cleaned
-        current_df = cleaned
+        current_df = dfs[dataset_type]
 
         return prepare_js_data(current_df)
 
@@ -185,6 +188,15 @@ def run_forecast(cutoff_date_str):
         train_df = current_df[current_df.index <= cutoff_date]
     else:
         train_df = current_df
+
+    # Model requires at least 104 data points for seasonal adjustment heuristic
+    if len(train_df) < 104:
+        # Gracefully handle not enough data for forecast by returning an empty forecast object
+        # that the frontend can safely render (meaning the chart won't have a forecast)
+        return {
+            'forecast': [],
+            'cutoff_date': train_df.index[-1].strftime('%Y-%m-%d') if len(train_df) > 0 else cutoff_date_str
+        }
 
     # Model
     model = ExponentialSmoothing(
