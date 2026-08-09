@@ -62,6 +62,9 @@
         const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
 
         const workerCode = `
+            // Pass baseUrl into worker context
+            self.baseUrl = "${baseUrl}";
+
             importScripts("${baseUrl}custom-pyodide/pyodide.js");
 
             function updateStatus(msg) {
@@ -95,6 +98,7 @@ from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from pyodide.http import open_url
 import json
 import js
+from urllib.parse import urljoin
 
 # Store dataframes for caching
 dfs = {
@@ -108,6 +112,12 @@ current_dataset_type = 'covid'
 DATA_URLS = {
     'covid': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json",
     'flu': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json"
+}
+
+# Historical data to supplement the new JSON endpoint which only starts in 2024
+HISTORICAL_URLS = {
+    'covid': "historical_covid.csv",
+    'flu': "historical_flu.csv"
 }
 
 PATHOGENS = {
@@ -130,7 +140,7 @@ def get_data(dataset_type='covid'):
 
     url = DATA_URLS[dataset_type]
     try:
-        # Load data
+        # Load new data
         data_json = json.loads(open_url(url).read())
         df_raw_all = pd.DataFrame(data_json)
         df_raw_all = df_raw_all.rename(columns={'Week_End': 'Week_Ending_Date'})
@@ -139,10 +149,27 @@ def get_data(dataset_type='covid'):
 
         for dtype, pathogen in PATHOGENS.items():
             df_raw = df_raw_all[df_raw_all['Pathogen_Target'] == pathogen].copy()
+            df_raw = df_raw[['Week_Ending_Date', 'National_WVAL']].dropna()
+
+            # Load and append historical data
+            try:
+                # Resolve the relative URL using the page base URL
+                base_url = js.baseUrl
+                hist_url = urljoin(base_url, HISTORICAL_URLS[dtype])
+                hist_df = pd.read_csv(open_url(hist_url))
+                hist_df['Week_Ending_Date'] = pd.to_datetime(hist_df['Week_Ending_Date'])
+                hist_df['National_WVAL'] = pd.to_numeric(hist_df['National_WVAL'], errors='coerce')
+                hist_df = hist_df[['Week_Ending_Date', 'National_WVAL']].dropna()
+
+                # Combine
+                df_raw = pd.concat([hist_df, df_raw])
+            except Exception as hist_e:
+                print("Could not load historical data for", dtype, hist_e)
+
             df_raw = df_raw.sort_values('Week_Ending_Date')
-            cleaned = df_raw[['Week_Ending_Date', 'National_WVAL']].dropna()
-            cleaned = cleaned.drop_duplicates(subset=['Week_Ending_Date'])
+            cleaned = df_raw.drop_duplicates(subset=['Week_Ending_Date'], keep='last')
             cleaned = cleaned.set_index('Week_Ending_Date')
+
             try:
                 cleaned.index.freq = pd.infer_freq(cleaned.index)
             except:
