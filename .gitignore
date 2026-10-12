@@ -1,2 +1,4 @@
 pyodide
 .vscode
+work/
+__pycache__/

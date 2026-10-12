@@ -36,7 +36,7 @@ Then navigate to `http://localhost:8000` in your web browser.
     *   **Adding Styles**: Missing utility classes must be manually added to `styles.css` when needed. Do not expect them to be generated automatically.
 
 3.  **Python Script (embedded in `workerCode`)**:
-    *   **Pyodide Loading**: The app uses a custom Pyodide distribution. Instead of `loadPackage`, it fetches and manually unpacks a `packages.tgz` archive containing the required dependencies (`pandas`, `statsmodels`, etc.).
+    *   **Pyodide Loading**: The app uses a custom Pyodide distribution. It loads only the runtime and Python standard library; no `loadPackage` or package archive is needed.
     *   **Execution**: Complex model execution logic is offloaded to the Web Worker.
     *   **Status Updates**: Real-time status updates are implemented by importing the `js` module and calling `js.updateStatus` to post messages to the main thread.
 
@@ -45,15 +45,15 @@ Then navigate to `http://localhost:8000` in your web browser.
 ### 1. Modifying the Python Logic
 The Python code is stored as a template string (`workerCode`) within the JavaScript.
 *   **Context**: Code runs inside the Pyodide environment in a Web Worker.
-*   **Packages**: Only packages included in the `custom-pyodide/packages.tgz` can be used.
+*   **Packages**: Keep application code dependency-free: use the Python standard library and built-in Pyodide modules.
 *   **Data Fetching**: Data is fetched directly from the CDC JSON URL:
     *   `https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json` (Combined COVID-19 and Influenza A dataset)
 *   **Data Processing**:
-    *   **Indices**: Input data must have a unique datetime index with an inferred frequency; duplicate dates must be filtered out.
+    *   **Indices**: Input data is sorted date/value pairs with unique dates; live CDC values override historical duplicates.
     *   **Sanitization**: `NaN` and `Infinity` values in Python **must** be converted to `None` before returning to JS, as browsers do not accept `NaN` in JSON.
 *   **Forecasting Model**:
     *   **Exponential Smoothing**: The model requires at least 104 data points (two full seasonal cycles of 52 weeks) to initialize successfully using the heuristic method. If the data is less than 104 points, return an empty forecast gracefully to prevent Python exceptions and UI crashing.
-    *   **Simulation**: When calculating confidence intervals from simulations, `np.nanpercentile` must be used to ignore `NaN` values. Note that simulations are only run for COVID-19 data; for Influenza, confidence intervals are skipped.
+    *   **Simulation**: When calculating confidence intervals from simulations, the standard-library `percentile` helper must ignore missing and nonfinite values. Note that simulations are only run for COVID-19 data; for Influenza, confidence intervals are skipped.
     *   **Clamping**: The forecast upper 50% confidence interval (75th percentile) is explicitly clamped at a maximum value of 30 to prevent y-axis distortion.
 
 ### 2. Frontend & Visualization
@@ -71,18 +71,18 @@ The Python code is stored as a template string (`workerCode`) within the JavaScr
 ### 3. Custom Pyodide Distribution
 The application relies on a pre-built custom Pyodide distribution to optimize loading.
 *   **Location**: `custom-pyodide/` directory.
-*   **Build Process**: To update dependencies, you must rebuild the distribution. Follow the instructions in `README.md` which involve cloning Pyodide, building recipes, and using `make_preload.py`. The script `make_preload.py` bundles Python dependencies by staging files in `_stage_pkgs` and produces the final artifact at `custom-pyodide/packages.tgz`.
+*   **Build Process**: Follow `README.md` to update runtime files. `make_preload.py` copies only runtime essentials from `dist/`; no third-party recipes or package archive are required.
 
 ### 4. Testing & Verification
 *   **Frontend Verification**: UI changes should be verified using Playwright scripts.
-*   **Wait Times**: Pyodide initialization involves downloading ~20MB+ of WASM/Python data. Tests (e.g., Playwright) must use extended timeouts (60s+) to verify graph updates.
+*   **Wait Times**: Pyodide initialization involves downloading ~11MB of WASM/standard-library data. Tests (e.g., Playwright) must use extended timeouts (60s+) to verify graph updates.
 *   **UI State**: Verify loading overlays appear/disappear correctly. Use `try...finally` in async functions to ensure UI reset.
 *   **Visuals**: Check that the slider aligns perfectly with the graph's x-axis.
 
 ### 5. Common Issues / Troubleshooting
 *   **CORS Errors**: If data fetching fails, ensure the CDC URL allows CORS or that the app is being accessed via a proxy/correctly configured server. Note: The app fetches directly from CDC.
 *   **"Port already in use"**: If running a local server (e.g., `python -m http.server`), ensure the port is free.
-*   **Model Errors**: `statsmodels` is sensitive to data gaps or duplicate dates. The `get_data` function includes logic to drop duplicates and set the index frequency. Maintain this rigor.
+*   **Model Errors**: The model treats observations as weekly steps. `get_data` sorts dates, filters invalid values, and removes duplicates; do not silently insert values into gaps.
 
 ### 6. Deployment
 *   The app is a static site. Ensure `index.html`, `styles.css`, `loading.gif`, and the `custom-pyodide/` directory are present.

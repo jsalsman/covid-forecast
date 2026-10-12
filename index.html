@@ -72,231 +72,324 @@
             }
             self.updateStatus = updateStatus;
 
-            async function loadPyodideAndPackages() {
+            async function loadPythonRuntime() {
                 self.updateStatus("Loading Pyodide...");
                 self.pyodide = await loadPyodide({ indexURL: "${baseUrl}custom-pyodide/" });
 
-                self.updateStatus("Unpacking packages...");
-                const resp = await fetch("${baseUrl}custom-pyodide/packages.tgz");
-                let buf = await resp.arrayBuffer();
-                await self.pyodide.unpackArchive(buf, "tgz", { extractDir: "/" });
-                buf = null;
-
-                self.updateStatus("Importing pandas...");
-                await self.pyodide.runPythonAsync("import pandas as pd");
-                self.updateStatus("Importing statsmodels...");
-                await self.pyodide.runPythonAsync("from statsmodels.tsa.holtwinters import ExponentialSmoothing");
-                self.updateStatus("Imported packages...");
+                self.updateStatus("Pyodide ready.");
             }
 
-            let pyodideReadyPromise = loadPyodideAndPackages();
+            let pyodideReadyPromise = loadPythonRuntime();
 
             const pythonScript = \`
-import pandas as pd
-import numpy as np
-from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from pyodide.http import open_url
+import csv
 import json
-import js
+import math
+import random
+from datetime import datetime, timedelta
 from urllib.parse import urljoin
+from pyodide.http import open_url
+import js
 
-# Store dataframes for caching
-dfs = {
-    'covid': None,
-    'flu': None
-}
-
+dfs = {'covid': None, 'flu': None}
 current_df = None
 current_dataset_type = 'covid'
+DATA_URL = 'https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json'
+PATHOGENS = {'covid': 'SARS-CoV-2', 'flu': 'Influenza A virus'}
 
-DATA_URLS = {
-    'covid': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json",
-    'flu': "https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json"
-}
 
-# Historical data to supplement the new JSON endpoint which only starts in 2024
-HISTORICAL_URLS = {
-    'covid': "historical_covid.csv",
-    'flu': "historical_flu.csv"
-}
+def parse_date(value):
+    return datetime.fromisoformat(str(value).replace('Z', '+00:00')).date()
 
-PATHOGENS = {
-    'covid': 'SARS-CoV-2',
-    'flu': 'Influenza A virus'
-}
+
+def clean_val(value):
+    if value is None:
+        return None
+    value = float(value)
+    return value if math.isfinite(value) else None
+
+
+def clean_rows(rows):
+    cleaned = {}
+    for row in rows:
+        try:
+            date = parse_date(row.get('Week_End', row.get('Week_Ending_Date')))
+            value = clean_val(row['National_WVAL'])
+            if value is not None:
+                cleaned[date] = value
+        except (ValueError, TypeError, KeyError):
+            continue
+    return sorted(cleaned.items())
+
+
+def prepare_js_data(rows):
+    return [{'date': date.isoformat(), 'value': value} for date, value in rows]
+
 
 def get_data(dataset_type='covid'):
-    global current_df, dfs, current_dataset_type
-
-    current_dataset_type = dataset_type
-
-    if dataset_type not in DATA_URLS:
-        return {"error": "Invalid dataset type"}
-
-    # Return cached if available
-    if dfs[dataset_type] is not None:
-        current_df = dfs[dataset_type]
-        return prepare_js_data(current_df)
-
-    url = DATA_URLS[dataset_type]
+    global current_df, current_dataset_type
+    if dataset_type not in PATHOGENS:
+        return {'error': 'Invalid dataset type'}
     try:
-        # Load new data
-        data_json = json.loads(open_url(url).read())
-        df_raw_all = pd.DataFrame(data_json)
-        df_raw_all = df_raw_all.rename(columns={'Week_End': 'Week_Ending_Date'})
-        df_raw_all['Week_Ending_Date'] = pd.to_datetime(df_raw_all['Week_Ending_Date'])
-        df_raw_all['National_WVAL'] = pd.to_numeric(df_raw_all['National_WVAL'], errors='coerce')
-
-        for dtype, pathogen in PATHOGENS.items():
-            df_raw = df_raw_all[df_raw_all['Pathogen_Target'] == pathogen].copy()
-            df_raw = df_raw[['Week_Ending_Date', 'National_WVAL']].dropna()
-
-            # Load and append historical data
-            try:
-                # Resolve the relative URL using the page base URL
-                base_url = js.baseUrl
-                hist_url = urljoin(base_url, HISTORICAL_URLS[dtype])
-                hist_df = pd.read_csv(open_url(hist_url))
-                hist_df['Week_Ending_Date'] = pd.to_datetime(hist_df['Week_Ending_Date'])
-                hist_df['National_WVAL'] = pd.to_numeric(hist_df['National_WVAL'], errors='coerce')
-                hist_df = hist_df[['Week_Ending_Date', 'National_WVAL']].dropna()
-
-                # Combine
-                df_raw = pd.concat([hist_df, df_raw])
-            except Exception as hist_e:
-                print("Could not load historical data for", dtype, hist_e)
-
-            df_raw = df_raw.sort_values('Week_Ending_Date')
-            cleaned = df_raw.drop_duplicates(subset=['Week_Ending_Date'], keep='last')
-            cleaned = cleaned.set_index('Week_Ending_Date')
-
-            try:
-                cleaned.index.freq = pd.infer_freq(cleaned.index)
-            except:
-                pass
-            dfs[dtype] = cleaned
-
+        if dfs[dataset_type] is None:
+            data = json.loads(open_url(DATA_URL).read())
+            for dtype, pathogen in PATHOGENS.items():
+                historical = []
+                try:
+                    historical = list(csv.DictReader(open_url(urljoin(js.baseUrl, 'historical_' + dtype + '.csv'))))
+                except Exception as error:
+                    print('Could not load historical data for', dtype, error)
+                # Current CDC values override historical values on duplicate dates.
+                live = [row for row in data if row.get('Pathogen_Target') == pathogen]
+                dfs[dtype] = clean_rows(historical + live)
+        current_dataset_type = dataset_type
         current_df = dfs[dataset_type]
-
         return prepare_js_data(current_df)
+    except Exception as error:
+        return {'error': str(error)}
 
-    except Exception as e:
-        return {"error": str(e)}
 
-def prepare_js_data(df):
-    data = []
-    for date, row in df.iterrows():
-        val = row['National_WVAL']
-        # Handle NaN/Inf
-        if pd.isna(val) or np.isinf(val):
-            val = None
+def minimize_scalar(function, low, high, iterations=32):
+    # Golden-section search, including endpoints for boundary optima.
+    ratio = (math.sqrt(5) - 1) / 2
+    left, right = high - ratio * (high - low), low + ratio * (high - low)
+    fl, fr = function(left), function(right)
+    candidates = [(function(low), low), (function(high), high)]
+    for _ in range(iterations):
+        if fl < fr:
+            high, right, fr = right, left, fl
+            left = high - ratio * (high - low)
+            fl = function(left)
         else:
-            val = float(val)
+            low, left, fl = left, right, fr
+            right = low + ratio * (high - low)
+            fr = function(right)
+    return min(candidates + [(fl, left), (fr, right)])[1]
 
-        data.append({
-            'date': date.strftime('%Y-%m-%d'),
-            'value': val
-        })
-    return data
 
-def clean_val(v):
-    if v is None: return None
-    if isinstance(v, (float, np.float64, np.float32)):
-        if np.isnan(v) or np.isinf(v): return None
-    return float(v)
+def boxcox_values(values):
+    if any(value <= 0 for value in values):
+        raise ValueError('Box-Cox forecasting requires positive activity levels')
+    logs = [math.log(value) for value in values]
+    if max(logs) - min(logs) < 1e-12:
+        return list(values), 1.0
+
+    def transform(lam):
+        return [math.expm1(lam * value) / lam for value in logs] if abs(lam) > 1e-8 else logs[:]
+
+    def objective(lam):
+        transformed = transform(lam)
+        mean = sum(transformed) / len(values)
+        variance = sum((value - mean) ** 2 for value in transformed) / len(values)
+        return len(values) * math.log(max(variance, 1e-300)) / 2 - (lam - 1) * sum(logs)
+
+    # Expand the likelihood bracket when the optimum is at its edge.
+    low, high = -2.0, 2.0
+    for _ in range(6):
+        lam = minimize_scalar(objective, low, high)
+        if low + 1e-5 < lam < high - 1e-5:
+            break
+        low, high = low * 2, high * 2
+    return transform(lam), lam
+
+
+def inverse_boxcox(value, lam):
+    try:
+        if abs(lam) < 1e-8:
+            return clean_val(math.exp(value))
+        base = 1 + lam * value
+        return clean_val(math.exp(math.log(base) / lam)) if base > 0 else None
+    except (OverflowError, ValueError):
+        return None
+
+
+def initial_state(values):
+    # Statsmodels' centered 52-week moving average and normalized seasonals.
+    count = min(5, len(values) // 52) * 52
+    trend = [(i, (sum(values[i-26:i+26]) + sum(values[i-25:i+27])) / 104)
+             for i in range(26, count - 26)]
+    seasonal = []
+    for phase in range(52):
+        effects = [values[i] - average for i, average in trend if i % 52 == phase]
+        seasonal.append(sum(effects) / len(effects))
+    average = sum(seasonal) / 52
+    seasonal = [value - average for value in seasonal]
+    first = [average for _, average in trend[:10]]
+    mean = sum(first) / 10
+    slope = sum((i - 5.5) * (value - mean) for i, value in enumerate(first, 1)) / 82.5
+    return [mean - slope * 5.5, slope] + seasonal
+
+
+def smooth(values, params):
+    alpha, beta_ratio, gamma_ratio, phi = params[:4]
+    beta, gamma = alpha * beta_ratio, (1 - alpha) * gamma_ratio
+    level, slope = params[4:6]
+    seasons = params[6:].copy()
+    errors = []
+    for i, value in enumerate(values):
+        phase = i % 52
+        baseline = level + phi * slope
+        error = value - baseline - seasons[phase]
+        old_level = level
+        level = baseline + alpha * error
+        slope = beta * (level - old_level) + (1 - beta) * phi * slope
+        # Holt-Winters uses the prior level and trend for the seasonal update.
+        seasons[phase] += gamma * error
+        errors.append(error)
+    return sum(error * error for error in errors), level, slope, seasons, errors
+
+
+def minimize_powell(function, start, bounds, max_sweeps=24):
+    # Direction-set minimization with bounded, bracketed line searches.
+    size = len(start)
+    directions = [[float(i == j) for i in range(size)] for j in range(size)]
+    point = start[:]
+    score = function(point)
+
+    def line_search(point, direction, score):
+        low, high = -64.0, 64.0
+        for value, step, (minimum, maximum) in zip(point, direction, bounds):
+            if abs(step) > 1e-15:
+                ends = ((minimum - value) / step, (maximum - value) / step)
+                low, high = max(low, min(ends)), min(high, max(ends))
+        if high - low < 1e-10:
+            return point[:], score
+        def along(distance):
+            return function([value + distance * step for value, step in zip(point, direction)])
+        # Bracket a local minimum around the current point before refinement.
+        left, right = max(low, -0.1), min(high, 0.1)
+        fl, fr = along(left), along(right)
+        if fl < score or fr < score:
+            sign = -1 if fl < fr else 1
+            previous, current = 0.0, left if sign < 0 else right
+            current_score = min(fl, fr)
+            for _ in range(10):
+                following = max(low, min(high, current * 2))
+                next_score = along(following)
+                if next_score >= current_score or following == current:
+                    left, right = sorted((previous, following))
+                    break
+                previous, current, current_score = current, following, next_score
+            else:
+                left, right = sorted((previous, current))
+        distance = minimize_scalar(along, left, right, iterations=20)
+        candidate_score = along(distance)
+        if candidate_score >= score:
+            return point[:], score
+        return [value + distance * step for value, step in zip(point, direction)], candidate_score
+
+    for _ in range(max_sweeps):
+        origin, original_score = point[:], score
+        biggest_drop, biggest_index = 0.0, 0
+        for index, direction in enumerate(directions):
+            before = score
+            point, score = line_search(point, direction, score)
+            if before - score > biggest_drop:
+                biggest_drop, biggest_index = before - score, index
+        if original_score - score <= 1e-7 * max(1.0, original_score):
+            break
+        displacement = [value - old for value, old in zip(point, origin)]
+        extrapolated = [value + step for value, step in zip(point, displacement)]
+        if all(low <= value <= high for value, (low, high) in zip(extrapolated, bounds)):
+            extra_score = function(extrapolated)
+            criterion = (2 * (original_score - 2 * score + extra_score) *
+                         (original_score - score - biggest_drop) ** 2 -
+                         biggest_drop * (original_score - extra_score) ** 2)
+            if extra_score < original_score and criterion < 0:
+                point, score = line_search(point, displacement, score)
+                directions[biggest_index] = directions[-1]
+                directions[-1] = displacement
+    return point, score
+
+
+def fit_model(values):
+    transformed, lam = boxcox_values(values)
+    state = initial_state(transformed)
+    scale = max(max(transformed) - min(transformed), 0.01)
+    scales = [1, 1, 1, 1, scale, scale / 52] + [scale] * 52
+    bounds = [(0.0001, 0.9999), (0, 1), (0, 1), (0.8, 0.995)] + [(-math.inf, math.inf)] * 54
+    best = None
+    for alpha in (0.1, 0.8):
+        start = [value / factor for value, factor in zip([alpha, 0.1, 0.1, 0.98] + state, scales)]
+        def objective(point):
+            return smooth(transformed, [value * factor for value, factor in zip(point, scales)])[0]
+        point, score = minimize_powell(objective, start, bounds)
+        if best is None or score < best[0]:
+            best = score, [value * factor for value, factor in zip(point, scales)]
+    params = best[1]
+    _, level, slope, seasons, errors = smooth(transformed, params)
+    # statsmodels counts 2 + 2 + (52 + 1) + 1 simulation parameters.
+    sigma = math.sqrt(sum(error * error for error in errors) / (len(values) - 58))
+    return params, level, slope, seasons, sigma, lam
+
+
+def model_path(model, count, steps=52, rng=None):
+    params, level, slope, seasons, sigma, lam = model
+    alpha, beta_ratio, gamma_ratio, phi = params[:4]
+    beta, gamma = alpha * beta_ratio, (1 - alpha) * gamma_ratio
+    seasons = seasons[:]
+    path = []
+    for i in range(steps):
+        phase = (count + i) % 52
+        baseline = level + phi * slope
+        error = rng.gauss(0, sigma) if rng is not None else 0.0
+        path.append(inverse_boxcox(baseline + seasons[phase] + error, lam))
+        level = baseline + alpha * error
+        # statsmodels' additive-error simulation uses beta directly here.
+        slope = phi * slope + beta * error
+        seasons[phase] += gamma * error
+    return path
+
+
+def percentile(values, percent):
+    valid = sorted(value for value in values if value is not None and math.isfinite(value))
+    if not valid:
+        return None
+    position = (len(valid) - 1) * percent / 100
+    low = int(position)
+    high = min(low + 1, len(valid) - 1)
+    return valid[low] + (valid[high] - valid[low]) * (position - low)
+
 
 def run_forecast(cutoff_date_str):
-    global current_df, current_dataset_type
     if current_df is None:
-        return {"error": "Data not loaded"}
-
-    if cutoff_date_str:
-        cutoff_date = pd.to_datetime(cutoff_date_str)
-        train_df = current_df[current_df.index <= cutoff_date]
-    else:
-        train_df = current_df
-
-    # Model requires at least 104 data points for seasonal adjustment heuristic
-    if len(train_df) < 104:
-        # Gracefully handle not enough data for forecast by returning an empty forecast object
-        # that the frontend can safely render (meaning the chart won't have a forecast)
-        return {
-            'forecast': [],
-            'cutoff_date': train_df.index[-1].strftime('%Y-%m-%d') if len(train_df) > 0 else cutoff_date_str
-        }
-
-    # Model
-    model = ExponentialSmoothing(
-        train_df['National_WVAL'],
-        seasonal_periods=52,
-        trend='add',
-        seasonal='add',
-        damped_trend=True,
-        use_boxcox=True,  # moves adjustments into the multiplicative domain
-        initialization_method="estimated"
-    )
-    model_fit = model.fit(method="Powell")
-
-    # Forecast
-    forecast_steps = 52
-    forecast = model_fit.forecast(forecast_steps)
-
-    lower_bound = np.full(forecast_steps, np.nan)
-    upper_bound = np.full(forecast_steps, np.nan)
-
-    # Confidence intervals from simulation (COVID only)
-    if current_dataset_type == 'covid':
-        n_simulations = 500
-        simulations = np.zeros((forecast_steps, n_simulations))
-
-        prev_lower = None
-        prev_upper = None
-
-        for i in range(n_simulations):
-            if (i + 1) % 10 == 0:
-                js.updateStatus(f"Ran {i+1} Monte Carlo simulations for confidence intervals...")
-            sim = model_fit.simulate(forecast_steps, anchor='end')
-            simulations[:, i] = sim.values
-
-            if (i + 1) % 10 == 0:
-                current_sims = simulations[:, :i+1]
-                current_lower = np.nanpercentile(current_sims, 25, axis=1)
-                current_upper = np.nanpercentile(current_sims, 75, axis=1)
-
-                if prev_lower is not None and prev_upper is not None:
-                    diff_lower = np.mean(np.abs(current_lower - prev_lower) / (np.abs(prev_lower) + 1e-9))
-                    diff_upper = np.mean(np.abs(current_upper - prev_upper) / (np.abs(prev_upper) + 1e-9))
-                    mean_diff = (diff_lower + diff_upper) / 2
-
-                    if mean_diff < 0.05:  # 5% is close enough
-                        js.updateStatus(f"Converged at {i+1} simulations. Stopping.")
-                        simulations = simulations[:, :i+1]
-                        break
-
-                prev_lower = current_lower
-                prev_upper = current_upper
-
-        lower_bound = np.nanpercentile(simulations, 25, axis=1)
-        upper_bound = np.nanpercentile(simulations, 75, axis=1)
-
-        upper_bound = np.minimum(upper_bound, 30)
-
-    forecast_data = []
-    last_date = train_df.index[-1]
-
-    for i in range(forecast_steps):
-        next_date = last_date + pd.Timedelta(weeks=i+1)
-        forecast_data.append({
-            'date': next_date.strftime('%Y-%m-%d'),
-            'forecast': clean_val(forecast.iloc[i]),
-            'lower': clean_val(lower_bound[i]),
-            'upper': clean_val(upper_bound[i])
-        })
-
-    return {
-        'forecast': forecast_data,
-        'cutoff_date': train_df.index[-1].strftime('%Y-%m-%d')
-    }
+        return {'error': 'Data not loaded'}
+    try:
+        cutoff = parse_date(cutoff_date_str) if cutoff_date_str else None
+        train = [(date, value) for date, value in current_df if cutoff is None or date <= cutoff]
+        last_date = train[-1][0].isoformat() if train else cutoff_date_str
+        if len(train) < 104:
+            return {'forecast': [], 'cutoff_date': last_date}
+        js.updateStatus('Fitting seasonal model...')
+        model = fit_model([value for _, value in train])
+        forecast = model_path(model, len(train))
+        lower, upper = [None] * 52, [None] * 52
+        if current_dataset_type == 'covid':
+            samples = [[] for _ in range(52)]
+            previous = None
+            rng = random.Random()
+            for i in range(500):
+                for bucket, value in zip(samples, model_path(model, len(train), rng=rng)):
+                    bucket.append(value)
+                if (i + 1) % 10 == 0:
+                    js.updateStatus(f'Ran {i+1} Monte Carlo simulations for confidence intervals...')
+                    lower = [percentile(bucket, 25) for bucket in samples]
+                    upper = [percentile(bucket, 75) for bucket in samples]
+                    bounds = lower + upper
+                    if previous is not None:
+                        differences = [abs(new - old) / (abs(old) + 1e-9)
+                                       for new, old in zip(bounds, previous) if new is not None and old is not None]
+                        if len(differences) == 104 and sum(differences) / 104 < 0.05:
+                            js.updateStatus(f'Converged at {i+1} simulations. Stopping.')
+                            break
+                    previous = bounds
+            upper = [min(value, 30) if value is not None else None for value in upper]
+        return {'forecast': [
+            {'date': (train[-1][0] + timedelta(weeks=i+1)).isoformat(),
+             'forecast': forecast[i], 'lower': lower[i], 'upper': upper[i]}
+            for i in range(52)], 'cutoff_date': last_date}
+    except Exception as error:
+        return {'error': str(error)}
 \`;
 
             self.onmessage = async (event) => {
