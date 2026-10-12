@@ -4,10 +4,10 @@ This repository contains a purely client-side web application that forecasts Nat
 
 ## Overview
 
-The application fetches the latest wastewater data from the CDC (for both [COVID-19 and Influenza A](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json)), processes it using `pandas`, and generates forecasts using `statsmodels`. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
+The application fetches the latest wastewater data from the CDC (for both [COVID-19 and Influenza A](https://www.cdc.gov/wcms/vizdata/NCEZID_DIDRI/NWSS_WVAL_metric/NWSSWVALRegionalActivityLevel.json)), processes it and generates forecasts using only Python’s standard library. Users can interactively select a "cut-off date" to simulate how the model would have performed at different points in the past (backtesting).
 
 ### Key Features
-- **Client-Side Python:** Runs full data science stack (`pandas`, `statsmodels`, and all their dependencies) in the browser.
+- **Client-Side Python:** Runs dependency-free Python in the browser; no pandas, NumPy, SciPy, or statsmodels downloads or imports.
 - **Interactive Visualization:** Uses [Plotly.js](https://plotly.com/javascript/) for interactive charts.
 - **Forecast Model:** Implements Holt-Winters Exponential Smoothing with 52-week seasonality and damped trend.
 - **Confidence Intervals:** Calculates 50% confidence intervals using Monte Carlo simulations (COVID-19 only).
@@ -21,7 +21,7 @@ The entire application logic is contained within `index.html`.
 1. **Initialization:**
    - The browser loads `index.html`.
    - A **Web Worker** is spawned to initialize the Pyodide environment without blocking the main UI thread.
-   - Python packages (the standard libraries, `pandas`, `statsmodels`, and all their dependencies) are downloaded and installed dynamically from the `custom-pyodide` files.
+   - Only the Pyodide runtime and Python standard library are loaded from `custom-pyodide`; no package archive is fetched or unpacked.
 
 2. **Data Processing:**
    - The Python script fetches the JSON data from the CDC URL.
@@ -30,7 +30,7 @@ The entire application logic is contained within `index.html`.
 3. **Forecasting:**
    - When the user adjusts the date slider, a message is sent to the Web Worker.
    - The Python script splits the data based on the selected cut-off date.
-   - An `ExponentialSmoothing` model is fitted to the training data.
+   - A Box–Cox transformed, additive Holt–Winters model with damped trend is fitted to the training data. Smoothing coefficients and initial level, trend, and seasonal states are estimated with bounded Powell-style direction search.
    - A 52-week forecast is generated.
    - Up to 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval, for COVID-19 only).
    - The upper bound is clamped at 30 (high activity level) for visualization purposes.
@@ -54,7 +54,7 @@ The entire application logic is contained within `index.html`.
 
 ### Browser Compatibility
 
-This Pyodide web app equires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edge). It may take a minute to download the Pyodide runtime and Python packages.
+This Pyodide web app equires a modern browser with WebAssembly support (Chrome, Firefox, Safari, Edge). The browser downloads roughly 11 MB of WASM and standard-library data, plus the runtime JavaScript. The former 34 MB package archive is no longer needed.
 
 ### Running Locally
 
@@ -71,80 +71,23 @@ Then navigate to `http://localhost:8000` in your web browser.
 
 ## Pre-built Custom Pyodide Distribution
 
-To improve loading time and avoid relying on external CDNs, we include a custom Pyodide distribution containing `pandas` and `statsmodels` and their dependencies. This allows us to load a single archive (`packages.tgz`) rather than downloading packages individually or using the CDN at all.
+The bundled runtime is served locally. The model and data processing use `csv`, `datetime`, `math`, `random`, and other standard-library modules. No third-party Python recipes are required.
 
-The custom distribution was built using the [following commands](https://pyodide.org/en/stable/development/building-from-sources.html#building-a-full-pyodide-distribution) and the [make_preload.py](make_preload.py) script:
+To update an existing Pyodide build, run `python make_preload.py` from its build directory, with the runtime files in `dist/`. The script copies only the six runtime essentials into `custom-pyodide/` and removes any legacy `packages.tgz`. Serve that directory alongside `index.html`.
+
+## Model compatibility and validation
+
+The Python implementation follows statsmodels’ Box–Cox maximum-likelihood transform, centered-moving-average initialization, additive seasonal smoothing, damped trend, and additive Gaussian-error simulations. It retains the 104-observation minimum, 52-week horizon, COVID-only intervals, NaN-ignoring percentiles, simulation convergence check, and upper interval cap of 30. CSV and JSON values are cleaned into sorted date/value pairs; current CDC values win over historical values on duplicate dates.
+
+Fitting uses bounded Powell-style direction search implemented in standard-library Python rather than SciPy’s optimizer, so fitted parameters and forecasts can differ. Simulations remain random. The final seasonal step uses the latest fitted seasonal state, including at week 52 (statsmodels 0.15’s point-forecast routine uses an older state at that boundary). These are model implementation changes, not a promise of identical forecasts.
+
+Run the standard-library checks with:
 
 ```bash
-git clone --recursive https://github.com/pyodide/pyodide
-cp make_preload.py pyodide
-cd pyodide
-./run_docker
-make
-git clone https://github.com/pyodide/pyodide-recipes
-pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/packages --install
-# That takes a little over an hour on a 2-core GitHub Codespace; so use 4 cores
-python make_preload.py
-exit
-rm -rf ../custom-pyodide
-cp -r custom-pyodide ..
-cd ..
-git add custom-pyodide
-git commit -m "Update custom pyodide build"
-git push
+python -m unittest discover -s tests
 ```
 
-The `custom-pyodide` directory is then served alongside `index.html`.
-
-## Ideas for the future
-
-### Custom Pyodide Distribution as a Memory Snapshot
-
-To further improve loading time, we could ship a memory snapshot in the distribution already containing `pandas` and `statsmodels` loaded. It would be built thusly:
-
-```
-git clone --recursive https://github.com/pyodide/pyodide
-cd pyodide
-./run_docker
-make
-git clone https://github.com/pyodide/pyodide-recipes
-pyodide build-recipes "pandas, statsmodels" --recipe-dir pyodide-recipes/packages --install
-# That takes a little over an hour
-
-cat > make_snapshot.mjs <<'EOF'
-import fs from "node:fs";
-import { loadPyodide } from "./dist/pyodide.mjs";
-
-const pyodide = await loadPyodide({
-  indexURL: "./dist/",
-  _makeSnapshot: true,
-});
-
-// Put the expensive installs into the snapshot
-await pyodide.loadPackage(["pandas", "statsmodels"]);
-await pyodide.runPythonAsync("import pandas, statsmodels");
-
-// API name varies by version
-const snap =
-  typeof pyodide.makeSnapshot === "function"
-    ? pyodide.makeSnapshot()
-    : pyodide.makeMemorySnapshot();
-
-fs.writeFileSync("./dist/snapshot.bin", Buffer.from(snap));
-EOF
-
-node make_snapshot.mjs
-```
-
-Then serve the whole `dist` directory (minus the test files) at `/custom-pyodide/` in the Pages branch `jsport`, and use it like this:
-
-```
-<script src="custom-pyodide/pyodide.js"></script>
-...
-const pyodide = await loadPyodide({ indexURL: "custom-pyodide/" });
-```
-
-**HOWEVER, memory snapshots are currently blocked by this issue:** https://github.com/pyodide/pyodide/issues/5195
+Optional numerical compatibility checks use locally installed NumPy, SciPy, and statsmodels; these are development-only dependencies and are never loaded by the application. Browser verification should serve the app over HTTP and check both datasets, slider cutoffs, loading states, and the absence of requests for `packages.tgz`.
 
 ## License
 
