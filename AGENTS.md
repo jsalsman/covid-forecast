@@ -88,8 +88,7 @@ The application relies on a pre-built custom Pyodide distribution to optimize lo
 *   **Model Errors**: The model treats observations as weekly steps. `get_data` sorts dates, filters invalid values, and removes duplicates; do not silently insert values into gaps.
 
 ### 6. Deployment
-*   **Branch**: The default and publishing branch is `main`. Target new PRs at `main`.
-*   **Hosting**: GitHub Pages publishes `main` → `/` to `https://covid.talknicer.com/`, with the domain recorded in `CNAME`. Merges trigger GitHub’s built-in `pages build and deployment` workflow in GitHub Actions. Google Cloud Build is not involved.
+*   **Hosting**: GitHub Pages publishes the repository root to `https://covid.talknicer.com/`, with the domain recorded in `CNAME`. Merges trigger GitHub’s built-in `pages build and deployment` workflow in GitHub Actions. Google Cloud Build is not involved.
 *   The app is a static site. Ensure `index.html`, `styles.css`, `loading.gif`, and the `custom-pyodide/` directory are present.
 *   No backend is required.
 

@@ -92,7 +92,7 @@ Optional numerical compatibility checks use locally installed NumPy, SciPy, and 
 
 ## Deployment
 
-The default branch is `main`. GitHub Pages publishes the repository root (`main` → `/`) at [covid.talknicer.com](https://covid.talknicer.com/). Merging a PR into `main` triggers GitHub’s built-in **pages build and deployment** workflow in GitHub Actions. This static site needs no Google Cloud Build trigger or backend.
+GitHub Pages publishes the repository root at [covid.talknicer.com](https://covid.talknicer.com/). Merging a PR triggers GitHub’s built-in **pages build and deployment** workflow in GitHub Actions. This static site needs no Google Cloud Build trigger or backend.
 
 Keep `CNAME` set to `covid.talknicer.com`, and publish `index.html`, `styles.css`, `loading.gif`, and the bundled `custom-pyodide/` runtime together.
 
