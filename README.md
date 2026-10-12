@@ -10,7 +10,7 @@ The application fetches the latest wastewater data from the CDC (for both [COVID
 - **Client-Side Python:** Runs dependency-free Python in the browser; no pandas, NumPy, SciPy, or statsmodels downloads or imports.
 - **Interactive Visualization:** Uses [Plotly.js](https://plotly.com/javascript/) for interactive charts.
 - **Forecast Model:** Implements Holt-Winters Exponential Smoothing with 52-week seasonality and damped trend.
-- **Confidence Intervals:** Calculates 50% confidence intervals using Monte Carlo simulations (COVID-19 only).
+- **Confidence Intervals:** Calculates 50% confidence intervals using Monte Carlo simulations for both COVID-19 and Influenza A.
 - **Responsive UI:** Built with [Tailwind CSS](https://tailwindcss.com/) for a clean, mobile-friendly interface.
 - **Zero-Backend:** Hosted entirely as a static HTML file.
 
@@ -32,8 +32,8 @@ The entire application logic is contained within `index.html`.
    - The Python script splits the data based on the selected cut-off date.
    - A Box–Cox transformed, additive Holt–Winters model with damped trend is fitted to the training data. Smoothing coefficients and initial level, trend, and seasonal states are estimated with bounded Powell-style direction search.
    - A 52-week forecast is generated.
-   - Up to 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval, for COVID-19 only).
-   - The upper bound is clamped at 30 (high activity level) for visualization purposes.
+   - Up to 500 simulations are run to estimate the 25th and 75th percentiles (50% confidence interval for both datasets).
+   - The COVID-19 upper bound is clamped at 30 (high activity level) for visualization purposes.
 
 4. **Visualization:**
    - The forecast data is sent back to the main thread.
@@ -77,7 +77,7 @@ To update an existing Pyodide build, run `python make_preload.py` from its build
 
 ## Model compatibility and validation
 
-The Python implementation follows statsmodels’ Box–Cox maximum-likelihood transform, centered-moving-average initialization, additive seasonal smoothing, damped trend, and additive Gaussian-error simulations. It retains the 104-observation minimum, 52-week horizon, COVID-only intervals, NaN-ignoring percentiles, simulation convergence check, and upper interval cap of 30. CSV and JSON values are cleaned into sorted date/value pairs; current CDC values win over historical values on duplicate dates.
+The Python implementation follows statsmodels’ Box–Cox maximum-likelihood transform, centered-moving-average initialization, additive seasonal smoothing, damped trend, and additive Gaussian-error simulations. It retains the 104-observation minimum, 52-week horizon, intervals for both datasets, NaN-ignoring percentiles, simulation convergence check, and COVID-only upper interval cap of 30. CSV and JSON values are cleaned into sorted date/value pairs; current CDC values win over historical values on duplicate dates.
 
 Fitting uses bounded Powell-style direction search implemented in standard-library Python rather than SciPy’s optimizer, so fitted parameters and forecasts can differ. Simulations remain random. The final seasonal step uses the latest fitted seasonal state, including at week 52 (statsmodels 0.15’s point-forecast routine uses an older state at that boundary). These are model implementation changes, not a promise of identical forecasts.
 

@@ -53,8 +53,8 @@ The Python code is stored as a template string (`workerCode`) within the JavaScr
     *   **Sanitization**: `NaN` and `Infinity` values in Python **must** be converted to `None` before returning to JS, as browsers do not accept `NaN` in JSON.
 *   **Forecasting Model**:
     *   **Exponential Smoothing**: The model requires at least 104 data points (two full seasonal cycles of 52 weeks) to initialize successfully using the heuristic method. If the data is less than 104 points, return an empty forecast gracefully to prevent Python exceptions and UI crashing.
-    *   **Simulation**: When calculating confidence intervals from simulations, the standard-library `percentile` helper must ignore missing and nonfinite values. Note that simulations are only run for COVID-19 data; for Influenza, confidence intervals are skipped.
-    *   **Clamping**: The forecast upper 50% confidence interval (75th percentile) is explicitly clamped at a maximum value of 30 to prevent y-axis distortion.
+    *   **Simulation**: When calculating confidence intervals from simulations, the standard-library `percentile` helper must ignore missing and nonfinite values. Run Monte Carlo simulations for both COVID-19 and Influenza A.
+    *   **Clamping**: The COVID-19 forecast upper 50% confidence interval (75th percentile) is explicitly clamped at a maximum value of 30 to prevent y-axis distortion. Influenza intervals are not clamped.
 
 ### 2. Frontend & Visualization
 *   **Plotly**: The chart is rendered in the `#chart` div.

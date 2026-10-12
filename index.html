@@ -18,7 +18,7 @@
             </div>
             <div class="flex items-center">
                 <input id="radio-flu" type="radio" name="dataset" value="flu" class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500">
-                <label for="radio-flu" class="ml-2 text-sm font-medium text-gray-900">Influenza A</label>
+                <label for="radio-flu" class="ml-2 text-sm font-medium text-gray-900">Influenza A including 50% confidence intervals</label>
             </div>
         </div>
 
@@ -363,26 +363,25 @@ def run_forecast(cutoff_date_str):
         js.updateStatus('Fitting seasonal model...')
         model = fit_model([value for _, value in train])
         forecast = model_path(model, len(train))
-        lower, upper = [None] * 52, [None] * 52
+        samples = [[] for _ in range(52)]
+        previous = None
+        rng = random.Random()
+        for i in range(500):
+            for bucket, value in zip(samples, model_path(model, len(train), rng=rng)):
+                bucket.append(value)
+            if (i + 1) % 10 == 0:
+                js.updateStatus(f'Ran {i+1} Monte Carlo simulations for confidence intervals...')
+                lower = [percentile(bucket, 25) for bucket in samples]
+                upper = [percentile(bucket, 75) for bucket in samples]
+                bounds = lower + upper
+                if previous is not None:
+                    differences = [abs(new - old) / (abs(old) + 1e-9)
+                                   for new, old in zip(bounds, previous) if new is not None and old is not None]
+                    if len(differences) == 104 and sum(differences) / 104 < 0.05:
+                        js.updateStatus(f'Converged at {i+1} simulations. Stopping.')
+                        break
+                previous = bounds
         if current_dataset_type == 'covid':
-            samples = [[] for _ in range(52)]
-            previous = None
-            rng = random.Random()
-            for i in range(500):
-                for bucket, value in zip(samples, model_path(model, len(train), rng=rng)):
-                    bucket.append(value)
-                if (i + 1) % 10 == 0:
-                    js.updateStatus(f'Ran {i+1} Monte Carlo simulations for confidence intervals...')
-                    lower = [percentile(bucket, 25) for bucket in samples]
-                    upper = [percentile(bucket, 75) for bucket in samples]
-                    bounds = lower + upper
-                    if previous is not None:
-                        differences = [abs(new - old) / (abs(old) + 1e-9)
-                                       for new, old in zip(bounds, previous) if new is not None and old is not None]
-                        if len(differences) == 104 and sum(differences) / 104 < 0.05:
-                            js.updateStatus(f'Converged at {i+1} simulations. Stopping.')
-                            break
-                    previous = bounds
             upper = [min(value, 30) if value is not None else None for value in upper]
         return {'forecast': [
             {'date': (train[-1][0] + timedelta(weeks=i+1)).isoformat(),
