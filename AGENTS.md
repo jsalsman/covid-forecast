@@ -52,11 +52,13 @@ The Python code is stored as a template string (`workerCode`) within the JavaScr
     *   **Indices**: Input data is sorted date/value pairs with unique dates; live CDC values override historical duplicates.
     *   **Sanitization**: `NaN` and `Infinity` values in Python **must** be converted to `None` before returning to JS, as browsers do not accept `NaN` in JSON.
 *   **Forecasting Model**:
+    *   **Box–Cox**: Constant and nearly constant positive series must use transformed values consistent with the selected lambda (`x - 1` for lambda 1), so forecasts preserve the original level.
     *   **Exponential Smoothing**: The model requires at least 104 data points (two full seasonal cycles of 52 weeks) to initialize successfully using the heuristic method. If the data is less than 104 points, return an empty forecast gracefully to prevent Python exceptions and UI crashing.
-    *   **Simulation**: When calculating confidence intervals from simulations, the standard-library `percentile` helper must ignore missing and nonfinite values. Run Monte Carlo simulations for both COVID-19 and Influenza A.
+    *   **Simulation**: Use up to 500 Monte Carlo simulations for both COVID-19 and Influenza A. Check the 25th/75th percentiles every ten runs and stop when their mean relative change is below 5%. The standard-library `percentile` helper must ignore missing and nonfinite values.
     *   **Clamping**: The COVID-19 forecast upper 50% confidence interval (75th percentile) is explicitly clamped at a maximum value of 30 to prevent y-axis distortion. Influenza intervals are not clamped.
 
 ### 2. Frontend & Visualization
+*   **Dataset labels**: Keep radio labels concise: `COVID-19` and `Influenza A`. Both charts show 50% confidence bands; the caption below the slider uses “The upper 50% confidence interval”. The underlying cap of 30 remains COVID-only.
 *   **Plotly**: The chart is rendered in the `#chart` div.
     *   **Legend**: Positioned at the top (`y: 1.1`, `orientation: 'h'`) to save vertical space.
     *   **Margins**: Explicitly set (`margin: { t: 0, ... }`) to handle layout shifts.
@@ -74,6 +76,7 @@ The application relies on a pre-built custom Pyodide distribution to optimize lo
 *   **Build Process**: Follow `README.md` to update runtime files. `make_preload.py` copies only runtime essentials from `dist/`; no third-party recipes or package archive are required.
 
 ### 4. Testing & Verification
+*   **Model checks**: Run `python -m unittest discover -s tests`. NumPy, SciPy, and statsmodels are optional development-only packages for numerical reference checks; never add them to the browser runtime. Regression coverage includes constant-series transforms, data cleaning and caching, short histories, intervals for both pathogens, and the COVID-only cap.
 *   **Frontend Verification**: UI changes should be verified using Playwright scripts.
 *   **Wait Times**: Pyodide initialization involves downloading ~11MB of WASM/standard-library data. Tests (e.g., Playwright) must use extended timeouts (60s+) to verify graph updates.
 *   **UI State**: Verify loading overlays appear/disappear correctly. Use `try...finally` in async functions to ensure UI reset.
@@ -85,6 +88,8 @@ The application relies on a pre-built custom Pyodide distribution to optimize lo
 *   **Model Errors**: The model treats observations as weekly steps. `get_data` sorts dates, filters invalid values, and removes duplicates; do not silently insert values into gaps.
 
 ### 6. Deployment
+*   **Branch**: The default and publishing branch is `main`. Target new PRs at `main`.
+*   **Hosting**: GitHub Pages publishes `main` → `/` to `https://covid.talknicer.com/`, with the domain recorded in `CNAME`. Merges trigger GitHub’s built-in `pages build and deployment` workflow in GitHub Actions. Google Cloud Build is not involved.
 *   The app is a static site. Ensure `index.html`, `styles.css`, `loading.gif`, and the `custom-pyodide/` directory are present.
 *   No backend is required.
 
