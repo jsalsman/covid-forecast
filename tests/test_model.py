@@ -71,6 +71,23 @@ class ModelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.model['boxcox_values']([0, 1])
 
+    def test_constant_series_forecasts_preserve_level(self):
+        for level in (0.5, 1.0, 5.0):
+            for count in (104, 156):
+                for perturbation in (0.0, level * 1e-13):
+                    with self.subTest(level=level, count=count, perturbation=perturbation):
+                        values = [level + (perturbation if i % 2 else 0.0) for i in range(count)]
+                        transformed, lam = self.model['boxcox_values'](values)
+                        self.assertEqual(lam, 1.0)
+                        for original, value in zip(values, transformed):
+                            self.assertAlmostEqual(self.model['inverse_boxcox'](value, lam), original, places=12)
+                        model = self.model['fit_model'](values)
+                        forecast = self.model['model_path'](model, count)
+                        simulation = self.model['model_path'](model, count, rng=random.Random(0))
+                        for value in forecast + simulation:
+                            self.assertIsNotNone(value)
+                            self.assertAlmostEqual(value, level, places=10)
+
     def test_cutoffs_and_forecast_contract(self):
         for dtype in ('covid', 'flu'):
             rows = self.historical(dtype)

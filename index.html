@@ -172,7 +172,7 @@ def boxcox_values(values):
         raise ValueError('Box-Cox forecasting requires positive activity levels')
     logs = [math.log(value) for value in values]
     if max(logs) - min(logs) < 1e-12:
-        return list(values), 1.0
+        return [value - 1.0 for value in values], 1.0
 
     def transform(lam):
         return [math.expm1(lam * value) / lam for value in logs] if abs(lam) > 1e-8 else logs[:]
