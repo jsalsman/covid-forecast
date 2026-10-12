@@ -102,10 +102,33 @@ class ModelTests(unittest.TestCase):
                     json.dumps(result, allow_nan=False)
                     if count >= 104:
                         self.assertTrue(any(item['forecast'] is not None for item in result['forecast']))
-                        if dtype == 'flu':
-                            self.assertTrue(all(item['lower'] is None and item['upper'] is None for item in result['forecast']))
-                        else:
+                        self.assertTrue(any(item['lower'] is not None and item['upper'] is not None
+                                            for item in result['forecast']))
+                        if dtype == 'covid':
                             self.assertTrue(all(item['upper'] is None or item['upper'] <= 30 for item in result['forecast']))
+
+    def test_intervals_for_both_datasets_and_covid_only_cap(self):
+        self.model['current_df'] = self.historical('flu')[:104]
+        self.model['fit_model'] = lambda values: None
+        for dtype, expected_upper in (('covid', 30), ('flu', 40)):
+            with self.subTest(dataset=dtype):
+                simulation_count = 0
+                def paths(model, count, rng=None):
+                    nonlocal simulation_count
+                    if rng is None:
+                        return [32.0] * 52
+                    simulation_count += 1
+                    return [20.0 if simulation_count % 2 else 40.0] * 52
+                self.model['model_path'] = paths
+                self.model['current_dataset_type'] = dtype
+                result = self.model['run_forecast'](None)
+                self.assertNotIn('error', result)
+                self.assertEqual(len(result['forecast']), 52)
+                self.assertEqual(simulation_count, 20)  # Stable quartiles converge at the second check.
+                for item in result['forecast']:
+                    self.assertEqual(item['forecast'], 32)
+                    self.assertEqual(item['lower'], 20)
+                    self.assertEqual(item['upper'], expected_upper)
 
     def test_reference_equations(self):
         try:
